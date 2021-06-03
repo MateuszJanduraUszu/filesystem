@@ -102,10 +102,244 @@ Simple library for path, file and directory operations used in UCFG file extensi
 - calling convention: __cdecl
 - exceptions: none
   
+# template<class, class>
+# path::path(const class* const)
   
+# template<class, class>
+# path::path(const class&)
   
+# path::_Check_size()
   
+# path::operator=(const path&)
   
+# path::assign(const path&)  
+  
+# template<class, class>
+# path::operator=(const class* const)
+  
+# template<class, class>
+# path::assign(const calss* const)
+  
+# template<class, class>
+# path::operator=(const class&)
+
+# template<class, class>
+# path::assign(const class&)
+  
+# path::operator+=(const path&)
+  
+# path::append(const path&)
+  
+# template<class, class>
+# path::operator+=(const class* const)
+
+# template<class, class>
+# path::append(const class* const)
+  
+# template<class, class>
+# path::operator+=(const calss&)
+  
+# template<class, class>
+# path::append(const class&)
+  
+# path::operator==(const path&)
+  
+# template<class, class>
+# path::operator==(const class* const)
+  
+# template<class, class>
+# path::operator==(const class&)
+  
+# path::clear()
+- type: void
+- use: Clears current working path.
+- attributes: noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::current_directory()
+- type: path
+- use: Returns current system directory.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::current_path()
+- type: path
+- use: Returns current system path.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::drive()
+- type: path
+- use: Return drive from current working path (if has).
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::empty()
+- type: bool
+- use: Checks if current working path is empty.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::extension()
+- type: path
+- use: Returns file extension from current working path (if has).
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::file()
+- type: path
+- use: Returns filename from current working path (if has).
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::fix()
+- type: path&
+- use: Removes unnecessary slashes and changes unexpected slashes to expected (on Windows 10 from "/" to "\").
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::generic_string()
+- type: string
+- use: Returns path::_Text.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::generic_u8string()
+- type: u8string
+- use: Returns path::_Text as u8string.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none  
+  
+# path::generic_u16string()
+- type: u16string
+- use: Returns path::_Text as u16string.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::generic_u32string()
+- type: u32string
+- use: Returns path::_Text as u32string;
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::generic_wstring()
+- type: wstring
+- use: Returns path::_Text as wstring;
+- attributes: nodiscard, noexcept;
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::has_drive()
+- type: bool
+- use: Checks if current working path has drive.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::has_extension()
+- type: bool
+- use: Checks if current working path has extension.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::has_file()
+- type: bool
+- use: Checks if current working path has file.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::has_parent_directory()
+- type: bool
+- use: Checks if current working path has parent directory.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::has_root_directory()
+- type: bool
+- use: Checks if current working path has root directory.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::has_stem()
+- type: bool
+- use: Checks if current working path has stem (filename without extension).
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::is_absolute()
+- type: bool
+- use: Checks if current working path is absolute. See https://docs.microsoft.com/xx-xx/dotnet/standard/io/file-path-formats,
+- (where xx-xx is your localization) for more informations.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none  
+  
+# path::is_relative()
+- type: bool
+- use: Checks if current working path is relative. See https://docs.microsoft.com/xx-xx/dotnet/standard/io/file-path-formats,
+- (where xx-xx is your localization) for more informations.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::make_preferred()
+- type: path&
+- use: Returns converted to Windows 10 standard path.
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::parent_directory()
+- type: path
+- use: Returns parent directory from current working path (if has).
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::parent_path()
+- type: path
+- use: Returns parent path from current working path (if has).
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::remove_extension()
+- type: path&
+- use: Removes extension from file, from current working path (if has).
+- attributes: nodiscard, noexcept
+- calling convention: __thiscall
+- exceptions: none
+  
+# path::remove_file(const bool)
+- type: path&
+- use: Removes filename (if parametr is true, removes also slash before filename (if has)).
+- attributes: nodiscard, noexcept
+- calling convention: __cdecl
+- exceptions: none
+  
+# path::replace_extension(const path&)
+- type: path&
+- use: Replaces current extension by other.
+- attributes: nodiscard
+- calling convention: __cdecl
+- exceptions: _Error_type::_Length_error
   
 # path::replace_file(const path&)
 - type: path&
@@ -124,21 +358,21 @@ Simple library for path, file and directory operations used in UCFG file extensi
 # path::root_directory()
 - type: path
 - use: Returns root directory from current working path (if has).
-- attributes: nodiscard
+- attributes: nodiscard, noexcept
 - calling convention: __thiscall
 - exceptions: none
   
 # path::root_path()
 - type: path
 - use: Returns root path from current working path (if has).
-- attributes: nodiscard
+- attributes: nodiscard. noexcept
 - calling convention: __thiscall
 - exceptions: none
   
 # path::stem()
 - type: path
 - use: Returns stem (filename without extension) from current working path (if has).
-- attributes: nodiscard
+- attributes: nodiscard, noexcept
 - calling convention: __thiscall
 - exceptions: none
   
