@@ -106,12 +106,12 @@ Simple library for path, file and directory operations used in UCFG file extensi
   
   
   
-  # path::replace_file(const path&)
-  type: path&
-  use: Replaces current filename by other.
-  attributes: nodiscard
-  calling convention: __cdecl
-  exceptions: _Error_type::_Length_error
+# path::replace_file(const path&)
+- type: path&
+- use: Replaces current filename by other.
+- attributes: nodiscard
+- calling convention: __cdecl
+- exceptions: _Error_type::_Length_error
   
   path::replace_stem(const path&)
   # type: path&
