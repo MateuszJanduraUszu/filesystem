@@ -106,7 +106,7 @@ Simple library for path, file and directory operations used in UCFG file extensi
   
   
   
-  #path::replace_file(const path&)
+  # path::replace_file(const path&)
   type: path&
   use: Replaces current filename by other.
   attributes: nodiscard
