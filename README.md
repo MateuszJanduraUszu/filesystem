@@ -1,14 +1,15 @@
-## filesystem
+# filesystem
 
 Simple library for path, file and directory operations used in UCFG file extension.
 
-<path.hpp>:
-  _Expected_slash 
-  # type: inline constexpr char
-  # use: Defines excepted slash in path, in Windows 10. 
-  # attributes: none
-  # calling convention: none
-  # exceptions: none
+# <path.hpp>:
+
+# _Expected_slash 
+- type: inline constexpr char
+- use: Defines excepted slash in path, in Windows 10. 
+- attributes: none
+- calling convention: none
+- exceptions: none
 
   _Utf8
   # type: inline constexpr unsigned int
@@ -148,15 +149,15 @@ Simple library for path, file and directory operations used in UCFG file extensi
   # calling convention: __cdecl
   # exceptions: _Error_type::_Length_error
   
-  path::_Text
-  # type: string
-  # use: Current working path.
-  # attributes: none
-  # calling convention: none
-  # exceptions: none
+# path::_Text
+- type: string
+- use: Current working path.
+- attributes: none
+- calling convention: none
+- exceptions: none
 
-<file.hpp>:
+# <file.hpp>:
   # add a description of the file class here
 
-<directory.hpp>:
+# <directory.hpp>:
   # add a description of the directory class here
