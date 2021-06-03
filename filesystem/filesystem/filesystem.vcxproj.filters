@@ -5,6 +5,9 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="bin">
+      <UniqueIdentifier>{845a23ed-9d8b-4c65-a519-f774c85e98e6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -30,5 +33,21 @@
     <ClCompile Include="path.cpp">
       <Filter>source</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\bin\filesystem.dll">
+      <Filter>bin</Filter>
+    </None>
+    <None Include="..\bin\filesystem.exp">
+      <Filter>bin</Filter>
+    </None>
+    <None Include="..\bin\filesystem.pdb">
+      <Filter>bin</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\bin\filesystem.lib">
+      <Filter>bin</Filter>
+    </Library>
   </ItemGroup>
 </Project>

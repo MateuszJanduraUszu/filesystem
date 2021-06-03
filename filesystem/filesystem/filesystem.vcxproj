@@ -186,6 +186,14 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\bin\filesystem.dll" />
+    <None Include="..\bin\filesystem.exp" />
+    <None Include="..\bin\filesystem.pdb" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\bin\filesystem.lib" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
