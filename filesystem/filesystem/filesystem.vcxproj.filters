@@ -16,10 +16,7 @@
     <ClInclude Include="pch.h">
       <Filter>source</Filter>
     </ClInclude>
-    <ClInclude Include="core.hpp">
-      <Filter>source</Filter>
-    </ClInclude>
-    <ClInclude Include="path.hpp">
+    <ClInclude Include="filesystem.hpp">
       <Filter>source</Filter>
     </ClInclude>
   </ItemGroup>
@@ -30,7 +27,22 @@
     <ClCompile Include="pch.cpp">
       <Filter>source</Filter>
     </ClCompile>
+    <ClCompile Include="error.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="conversion.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
     <ClCompile Include="path.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="status.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="create_remove.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="read_write.cpp">
       <Filter>source</Filter>
     </ClCompile>
   </ItemGroup>

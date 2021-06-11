@@ -8,6 +8,5 @@
 #define _PCH_H_
 
 #include <framework.h>
-#include <core.hpp>
-#include <path.hpp>
+#include <filesystem.hpp>
 #endif // _PCH_H_

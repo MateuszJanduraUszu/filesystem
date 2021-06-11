@@ -1,0 +1,757 @@
+// filesystem.hpp
+
+// Copyright (c) Mateusz Jandura. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+#ifndef _FILESYSTEM_HPP_
+#define _FILESYSTEM_HPP_
+
+#ifndef __cplusplus
+#error The contents of <filesystem.hpp> are available only with C++.
+#endif // __cplusplus
+
+#ifdef _WIN32
+#define _HAS_WINDOWS 1
+#else // ^^^ _WIN32 ^^^ / vvv !_WIN32 vvv
+#define _HAS_WINDOWS 0
+#endif // _WIN32
+
+// deprecated content
+#ifndef _DEPRECATED
+#define _DEPRECATED(_Depr) __declspec(deprecated("The " #_Depr " will be removed soon. Try to avoid using it."))
+#endif // _DEPRECATED
+
+#ifndef _DEPRECATED_WITH_REPLACEMENT
+#define _DEPRECATED_WITH_REPLACEMENT(_Depr, _Repl) __declspec(deprecated("The " #_Depr " will be removed soon. " \
+    "Use " #_Repl " instead of it."))
+#endif // _DEPRECATED_WITH_REPLACEMENT
+
+// filesystem api
+#ifndef _FILESYSTEM_API
+#ifdef _FILESYSTEM_EXPORT
+#define _FILESYSTEM_API __declspec(dllexport)
+#else // ^^^ _FILESYSTEM_EXPORT ^^^ / vvv _FILESYSTEM_EXPORT vvv
+#define _FILESYSTEM_API __declspec(dllimport)
+#endif // _FILESYSTEM_EXPORT
+#endif // _FILESYSTEM_API
+
+// attributes
+#ifndef _NOATTRIBUTE
+#define _NOATTRIBUTE
+#endif // _NOATTRIBUTE
+
+#ifndef _NODISCARD
+#define _NODISCARD [[nodiscard]]
+#endif // _NODISCARD
+
+// exceptions
+#ifndef _THROW
+#define _THROW(_Errm) throw _Errm
+#endif // _THROW
+
+#ifndef _TRY_BEGIN
+#define _TRY_BEGIN try {
+#endif // _TRY_BEGIN
+
+#ifndef _CATCH
+#define _CATCH(_Exc) } catch (_Exc) {
+#endif // _CATCH
+
+#ifndef _CATCH_ALL
+#define _CATCH_ALL } catch (...) {
+#endif // _CATCH_ALL
+
+#ifndef _CATCH_END
+#define _CATCH_END }
+#endif // _CATCH_END
+
+// namespace
+#ifndef _FILESYSTEM_BEGIN
+#define _FILESYSTEM_BEGIN namespace filesystem {
+#endif // _FILESYSTEM_BEGIN
+
+#ifndef _FILESYSTEM_END
+#define _FILESYSTEM_END }
+#endif // _FILESYSTEM_END
+
+#ifndef _EXPERIMENTAL_BEGIN
+#define _EXPERIMENTAL_BEGIN namespace experimental {
+#endif // _EXPERIMENTAL_BEGIN
+
+#ifndef _EXPERIMENTAL_END
+#define _EXPERIMENTAL_END }
+#endif // _EXPERIMENTAL_END
+
+#ifndef _FILESYSTEM
+#define _FILESYSTEM ::filesystem::
+#endif // _FILESYSTEM
+
+#ifndef _FILESYSTEM_EXPERIMENTAL
+#define _FILESYSTEM_EXPERIMENTAL ::filesystem::experimental::
+#endif // _FILESYSTEM_EXPERIMENTAL
+
+// operators
+#ifndef _BITOPS
+#define _BITOPS(_Bitsrc)                                                                                \
+_NODISCARD constexpr _Bitsrc __cdecl operator&(const _Bitsrc _Left, const _Bitsrc _Right) noexcept {    \
+    using _IntT = _STD underlying_type_t<_Bitsrc>;                                                      \
+    return static_cast<_Bitsrc>(static_cast<_IntT>(_Left) & static_cast<_IntT>(_Right));                \
+}                                                                                                       \
+                                                                                                        \
+_NODISCARD constexpr _Bitsrc __cdecl operator|(const _Bitsrc _Left, const _Bitsrc _Right) noexcept {    \
+    using _IntT = _STD underlying_type_t<_Bitsrc>;                                                      \
+    return static_cast<_Bitsrc>(static_cast<_IntT>(_Left) | static_cast<_IntT>(_Right));                \
+} 
+#endif // _BITOPS
+
+#if !_HAS_WINDOWS
+#pragma message("The contents of <filesystem.hpp> are available only with Windows 10.")
+#else // ^^^ !_HAS_WINDOWS ^^^ / vvv _HAS_WINDOWS vvv
+#pragma warning(push)
+#pragma warning(disable : 4996) // C4996: using deprecated content
+#pragma warning(disable : 4251) // C4251: requires dll library
+
+#include <algorithm>
+#include <codecvt>
+#include <fstream>
+#include <iostream>
+#include <locale>
+#include <Shlwapi.h>
+#pragma comment(lib, "Shlwapi.lib")
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+// STD allocators
+using _STD allocator;
+using _STD vector;
+
+// STD characters
+using _STD char_traits;
+
+// STD conditions
+using _STD enable_if;
+
+// STD conversion
+using _STD codecvt_utf8;
+using _STD codecvt_utf8_utf16;
+using _STD wstring_convert;
+
+// STD exceptions
+using _STD exception;
+using _STD invalid_argument;
+using _STD length_error;
+using _STD runtime_error;
+using _STD system_error;
+
+// STD file streams
+using _STD fstream;
+using _STD ifstream;
+using _STD ofstream;
+
+// STD streams
+using _STD basic_istream;
+using _STD basic_ostream;
+using _STD ios;
+using _STD istream;
+using _STD ostream;
+using _STD wistream;
+using _STD wostream;
+
+// STD strings
+using _STD basic_string;
+using _STD string;
+using _STD u8string;
+using _STD u16string;
+using _STD u32string;
+using _STD wstring;
+
+// STD strings for view
+using _STD basic_string_view;
+using _STD string_view;
+using _STD u8string_view;
+using _STD u16string_view;
+using _STD u32string_view;
+using _STD wstring_view;
+
+_FILESYSTEM_BEGIN
+_EXPERIMENTAL_BEGIN
+// expected slash on Windows 10
+inline constexpr char _Expected_slash   = '\\';
+inline constexpr char _Unexpected_slash = '/'; // default on Linux
+
+// CONSTANT _Is_CharT
+template<class>
+inline constexpr bool _Is_CharT = false;
+
+template<>
+inline constexpr bool _Is_CharT<char> = true;
+template<>
+inline constexpr bool _Is_CharT<char8_t> = true;
+template<>
+inline constexpr bool _Is_CharT<char16_t> = true;
+template<>
+inline constexpr bool _Is_CharT<char32_t> = true;
+template<>
+inline constexpr bool _Is_CharT<wchar_t> = true;
+
+// CLASS path
+class path;
+
+// CONSTANT _Is_Src
+template<class>
+inline constexpr bool _Is_Src = false;
+
+template<>
+inline constexpr bool _Is_Src<path> = false; // to avoid errors in copy constructors, in path
+template<>
+inline constexpr bool _Is_Src<string> = true;
+template<>
+inline constexpr bool _Is_Src<u8string> = true;
+template<>
+inline constexpr bool _Is_Src<u16string> = true;
+template<>
+inline constexpr bool _Is_Src<u32string> = true;
+template<>
+inline constexpr bool _Is_Src<wstring> = true;
+
+// CONSTANT _Is_SrcView
+template<class>
+inline constexpr bool _Is_SrcView = false;
+
+template<>
+inline constexpr bool _Is_SrcView<path> = false; // to avoid errors in copy constructors, in path
+template<>
+inline constexpr bool _Is_SrcView<string_view> = true;
+template<>
+inline constexpr bool _Is_SrcView<u8string_view> = true;
+template<>
+inline constexpr bool _Is_SrcView<u16string_view> = true;
+template<>
+inline constexpr bool _Is_SrcView<u32string_view> = true;
+template<>
+inline constexpr bool _Is_SrcView<wstring_view> = true;
+
+#ifndef MAX_PATH
+#define MAX_PATH 260
+#endif // MAX_PATH
+
+// ENUM CLASS error_type
+enum class error_type : unsigned int { // error type for _Throw_system_error
+    invalid_argument,
+    length_error,
+    runtime_error
+};
+
+// ENUM CLASS code_page
+enum class code_page {
+    utf8 = 65001 // default code page
+};
+
+// FUNCTION TEMPLATE _Throw_system_error
+_FILESYSTEM_API __declspec(noreturn) void __cdecl _Throw_system_error(const char* const _Errpos, const char* const _Errm, const error_type _Errc);
+
+// FUNCTION _Convert_narrow_to_wide
+_FILESYSTEM_API _NODISCARD wstring __cdecl _Convert_narrow_to_wide(const code_page _Code_page, const string_view _Input);
+
+// FUNCTION _Convert_wide_to_narrow
+_FILESYSTEM_API _NODISCARD string __cdecl _Convert_wide_to_narrow(const code_page _Code_page, const wstring_view _Input);
+
+// FUNCTION TEMPLATE _Convert_utf_to_wide
+template<class _Elem, class _Traits = char_traits<_Elem>>
+_FILESYSTEM_API _NODISCARD string __cdecl _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input);
+
+// FUNCTION TEMPLATE _Convert_wide_to_utf
+template<class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
+_FILESYSTEM_API _NODISCARD basic_string<_Elem, _Traits, _Alloc> __cdecl _Convert_narrow_to_utf(const string_view _Input);
+
+// FUNCTION TEMPLATE operator+
+// enables path concatenation with C/C++ strings
+_FILESYSTEM_API _NODISCARD path __cdecl operator+(const path& _Left, const path& _Right);
+template<class _CharT>
+_FILESYSTEM_API _NODISCARD path __cdecl operator+(const path& _Left, const _CharT* const _Right);
+template<class _CharT>
+_FILESYSTEM_API _NODISCARD path __cdecl operator+(const _CharT* const _Left, const path& _Right);
+template<class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
+_FILESYSTEM_API _NODISCARD path __cdecl operator+(const path& _Left, const basic_string<_Elem, _Traits, _Alloc>& _Right);
+template<class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
+_FILESYSTEM_API _NODISCARD path __cdecl operator+(const basic_string<_Elem, _Traits, _Alloc>& _Left, const path& _Right);
+
+// CLASS path
+class _FILESYSTEM_API path {
+private:
+    template<class _Elem, class _Traits>
+    friend basic_istream<_Elem, _Traits>& __cdecl operator>>(basic_istream<_Elem, _Traits>&, path&);
+    template<class _Elem, class _Traits>
+    friend basic_ostream<_Elem, _Traits>& __cdecl operator<<(basic_ostream<_Elem, _Traits>&, const path&);
+    friend path __cdecl operator+(const path&, const path&);
+    template<class _CharT>
+    friend path __cdecl operator+(const path&, const _CharT* const);
+    template<class _CharT>
+    friend path __cdecl operator+(const _CharT* const, const path&);
+    template<class _Elem, class _Traits, class _Alloc>
+    friend path __cdecl operator+(const path&, const basic_string<_Elem, _Traits, _Alloc>&);
+    template<class _Elem, class _Traits, class _Alloc>
+    friend path __cdecl operator+(const basic_string<_Elem, _Traits, _Alloc>&, const path&);
+
+public:
+    using value_type  = char;
+    using string_type = string;
+
+    __thiscall path()          = default;
+    __cdecl path(const path&)  = default;
+    __cdecl path(path&&)       = default;
+    virtual __thiscall ~path() = default;
+
+    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    __cdecl path(const _CharT* const _Source); // all character types
+
+    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    __cdecl path(const _Src& _Source); // all string types
+
+private:
+    void __thiscall _Check_size() const; // verifies path size
+
+public:
+    path& __cdecl operator=(const path& _Source);
+    path& __cdecl assign(const path& _Source);
+
+    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    path& __cdecl operator=(const _CharT* const _Source); // all character types
+
+    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    path& __cdecl assign(const _CharT* const _Source); // all character types
+
+    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    path& __cdecl operator=(const _Src& _Source); // all string types
+
+    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    path& __cdecl assign(const _Src& _Source); // all string types
+
+public:
+    path& __cdecl operator+=(const path& _Added);
+    path& __cdecl append(const path& _Added);
+
+    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    path& __cdecl operator+=(const _CharT* const _Added); // all character types
+
+    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    path& __cdecl append(const _CharT* const _Added); // all character types
+
+    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    path& __cdecl operator+=(const _Src& _Added); // all string types
+
+    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    path& __cdecl append(const _Src& _Added); // all string types
+
+public:
+    bool __cdecl operator==(const path& _Compare) const noexcept;
+
+    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    bool __cdecl operator==(const _CharT* const _Compare) const;
+
+    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    bool __cdecl operator==(const _Src& _Compare) const;
+
+public:
+    bool __cdecl operator!=(const path& _Compare) const noexcept;
+
+    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    bool __cdecl operator!=(const _CharT* const _Compare) const;
+
+    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    bool __cdecl operator!=(const _Src& _Compare) const;
+
+public:
+    // clears current working path
+    void __thiscall clear() noexcept;
+
+    // returns drive from current working path (if has)
+    _NODISCARD path __thiscall drive() const noexcept;
+
+    // checks if current working path is empty
+    _NODISCARD bool __thiscall empty() const noexcept;
+
+    // returns extension from current working path (if has)
+    _NODISCARD path __thiscall extension() const noexcept;
+
+    // returns filename from current working path (if has)
+    _NODISCARD path __thiscall file() const noexcept;
+
+    // removes unnecessary slashes from current working path
+    // and converts to Windows 10 standard
+    _NODISCARD path& __thiscall fix() noexcept;
+
+    // returns current working path as string
+    _NODISCARD const string __thiscall generic_string() const noexcept;
+
+    // returns current working path as u8string
+    _NODISCARD const u8string __thiscall generic_u8string() const;
+
+    // returns current working path as u16string
+    _NODISCARD const u16string __thiscall generic_u16string() const;
+
+    // returns current working path as u32string
+    _NODISCARD const u32string __thiscall generic_u32string() const;
+
+    // returns current working path as wstring
+    _NODISCARD const wstring __thiscall generic_wstring() const;
+
+    // checks if current working path has drive
+    _NODISCARD bool __thiscall has_drive() const noexcept;
+
+    // checks if current working path has extension
+    _NODISCARD bool __thiscall has_extension() const noexcept;
+    
+    // checks if current working path has file
+    _NODISCARD bool __thiscall has_file() const noexcept;
+
+    // checks if current working path has parent directory
+    _NODISCARD bool __thiscall has_parent_directory() const noexcept;
+
+    // checks if current working path has root directory
+    _NODISCARD bool __thiscall has_root_directory() const noexcept;
+
+    // checks if current working path has stem (filename without extension)
+    _NODISCARD bool __thiscall has_stem() const noexcept;
+
+    // checks if current working path is absolute
+    _NODISCARD bool __thiscall is_absolute() const noexcept;
+    
+    // checks if current working path is relative
+    _NODISCARD bool __thiscall is_relative() const noexcept;
+
+    // converts current working path to Windows 10 standard
+    _NODISCARD path& __thiscall make_preferred() noexcept;
+
+    // returns parent directory from current working path
+    _NODISCARD path __thiscall parent_directory() const noexcept;
+
+    // returns parent path from current working path
+    _NODISCARD path __thiscall parent_path() const noexcept;
+
+    // removes extension from current working path (if has)
+    _NODISCARD path& __thiscall remove_extension() noexcept;
+
+    // removes filename from current working path (if has) (removes slash, if has and _With_slash is true)
+    _NODISCARD path& __cdecl remove_file(const bool _With_slash) noexcept;
+
+    // replaces extension from current working path with replacement (if has extension)
+    _NODISCARD path& __cdecl replace_extension(const path& _Replacement);
+
+    // replaces filename from current working path with replacement (if has filename)
+    _NODISCARD path& __cdecl replace_file(const path& _Replacement);
+
+    // replaces stem from current working path with replacement (if has stem)
+    _NODISCARD path& __cdecl replace_stem(const path& _Replacement);
+
+    // returns root directory from current working path (if has)
+    _NODISCARD path __thiscall root_directory() const noexcept;
+
+    // returns root path from current working path
+    _NODISCARD path __thiscall root_path() const noexcept;
+
+    // returns stem (file name without extension) from current working path (if has)
+    _NODISCARD path __thiscall stem() const noexcept;
+
+private:
+    string_type _Text; // current working path
+};
+
+// CLASS filesystem_error
+class _FILESYSTEM_API filesystem_error { // base of all filesystem errors
+public:
+    __thiscall filesystem_error() noexcept : _Src(), _Cat(), _What() {}
+
+    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    __cdecl filesystem_error(const _CharT* const _Errm);
+
+    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    __cdecl filesystem_error(const _CharT* const _Errm, const error_type _Errc);
+
+    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    __cdecl filesystem_error(const _CharT* const _Errm, const error_type _Errc, const path& _Errpos);
+
+public:
+    _NODISCARD const error_type __thiscall category() const noexcept; // error category
+
+    _NODISCARD const path& __thiscall source() const noexcept; // error source
+    
+    _NODISCARD const char* __thiscall what() const noexcept; // informations about error
+
+private:
+    path _Src; // source of the error
+    error_type _Cat; // error category
+    const char* _What; // error message
+};
+
+// FUNCTION _Throw_fs_error
+_FILESYSTEM_API __declspec(noreturn) void __cdecl _Throw_fs_error(const char* const _Errm);
+_FILESYSTEM_API __declspec(noreturn) void __cdecl _Throw_fs_error(const char* const _Errm, const error_type _Errc);
+_FILESYSTEM_API __declspec(noreturn) void __cdecl _Throw_fs_error(const char* const _Errm, const error_type _Errc, const path& _Errpos);
+
+// FUNCTION current_path
+_FILESYSTEM_API _NODISCARD path __stdcall current_path() noexcept;
+_FILESYSTEM_API _NODISCARD bool __cdecl current_path(const path& _Path);
+
+// ENUM CLASS file_access
+enum class _FILESYSTEM_API file_access : unsigned long {
+    readonly  = 0x80000000, // file can be only readed
+    writeonly = 0x40000000, // file can be readed and overwritten
+    all       = 0x10000000 // contains read, all and execute (it's redundant in this case)
+};
+
+// ENUM CLASS file_attributes
+enum class _FILESYSTEM_API file_attributes {
+    none          = 0,
+    readonly      = 0x0001,
+    hidden        = 0x0002,
+    system        = 0x0004, // used only by system
+    directory     = 0x0010, // is directory
+    archive       = 0x0020,
+    normal        = 0x0080, // without any attribute
+    reparse_point = 0x0400, // symbolic link or mount point
+    compressed    = 0x0800,
+    encrypted     = 0x4000, 
+    unknown       = 0xFFFF
+};
+
+_BITOPS(file_attributes)
+
+// ENUM CLASS file_disposition
+enum class _FILESYSTEM_API file_disposition : unsigned int {
+    only_new       = 0x1, // creates only if not exists
+    only_if_exists = 0x3, // opens only if exists
+
+    force_create = 0x2, // if exists, overwrites the file
+    force_open   = 0x4 // if not exists, creates new
+};
+
+// ENUM CLASS file_flags
+enum class _FILESYSTEM_API file_flags { // mainly for GetFileInformationByHandleEx()
+    open_reparse_point = 0x00200000,
+    backup_semantics   = 0x02000000
+};
+
+_BITOPS(file_flags)
+
+// ENUM CLASS file_permissions
+enum class _FILESYSTEM_API file_permissions {
+    none      = 0,
+    readonly  = 0x2,
+    writeonly = 0x4,
+    all       = 0x6, // in fact, the same as writeonly
+    unknown   = 0xF
+};
+
+// ENUM CLASS file_reparse_tag
+enum class _FILESYSTEM_API file_reparse_tag : unsigned long {
+    mount_point = 0xA0000003L,
+    symlink     = 0xA000000CL
+};
+
+// STRUCT file_time
+struct _FILESYSTEM_API file_time {
+    // calendar
+    int _Year;
+    int _Month;
+    int _Day;
+    
+    // clock
+    int _Hour;
+    int _Minute;
+    int _Second;
+};
+
+// ENUM CLASS file_type
+enum class _FILESYSTEM_API file_type : unsigned int {
+    none,
+    not_found,
+    directory,
+    regular, 
+
+    // there could be also block, character, fifo and socket,
+    // but there's no reason to implement it,
+    // because Windows 10 don't supports it
+    symlink,
+    junction
+};
+
+// ENUM CLASS file_share
+enum class _FILESYSTEM_API file_share : unsigned int {
+    read   = 0x1,
+    write  = 0x2,
+    remove = 0x4 // is able to remove file/directory
+};
+
+// CLASS status
+class _FILESYSTEM_API file_status {
+public:
+    __thiscall file_status() noexcept;
+    __cdecl file_status(const file_status&) = default;
+    __cdecl file_status(file_status&&)      = default;
+    virtual __thiscall ~file_status()       = default;
+    file_status& __cdecl operator=(const file_status&) = delete;
+    file_status& __cdecl operator=(file_status&&) = delete;
+
+    explicit __cdecl file_status(const path& _Path) noexcept;
+
+public:
+    // returns attributes to current working path
+    _NODISCARD const file_attributes __thiscall attribute() const noexcept;
+
+    // returns permissions to current working path
+    _NODISCARD const file_permissions __thiscall permissions() const noexcept;
+
+    // returns current working path type
+    _NODISCARD const file_type __thiscall type() const noexcept;
+
+private:
+    // inits all
+    void __thiscall _Init() noexcept;
+
+    // refreshs current working path type
+    void __thiscall _Refresh() noexcept;
+
+    // sets new attribute to current working path
+    void __cdecl _Update_attribute(const file_attributes _Newattrib) noexcept;
+
+    // sets new permissions to current working path
+    void __cdecl _Update_permissions(const file_permissions _Newperms) noexcept;
+
+    // sets new type to current working path
+    void __cdecl _Update_type(const file_type _Newtype) noexcept;
+
+private:
+    struct stat _Stats; // file or directory stats
+    path _Path; // current working path
+    file_attributes _Attribute; // current working path attribute
+    file_permissions _Perms; // current working path right access
+    file_type _Type; // current working path type
+};
+
+// ENUM CLASS rename_options
+enum class _FILESYSTEM_API rename_options : unsigned int {
+    replace       = 0x1, // replaces existing
+    copy          = 0x2, // if moving to another volumine, copies and removes file
+    write_through = 0x8 // no returns if wasn't moved on drive
+};
+
+_BITOPS(rename_options)
+
+// ENUM CLASS symlink_flag
+enum class _FILESYSTEM_API symlink_flags {
+    file               = 0x0, // symbolic link to file
+    directory          = 0x1, // symbolic link to directory
+    allow_unprivileged = 0x2 // no need to have full access to target
+};
+
+_BITOPS(symlink_flags)
+
+// FUNCTION creation_data
+_FILESYSTEM_API _NODISCARD file_time __cdecl creation_time(const path& _Target);
+
+// FUNCTION create_directory
+_FILESYSTEM_API _NODISCARD bool __cdecl create_directory(const path& _Path);
+
+// FUNCTION create_file
+_FILESYSTEM_API _NODISCARD bool __cdecl create_file(const path& _Path);
+
+// FUNCTION create_hard_link
+_FILESYSTEM_API _NODISCARD bool __cdecl create_hard_link(const path& _To, const path& _Hardlink);
+
+// FUNCTION create_junction
+_FILESYSTEM_API _DEPRECATED(create_junction) _NODISCARD bool __cdecl create_junction(const path& _To, const path& _Junction);
+
+// FUNCTION create_symlink
+_FILESYSTEM_API _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags);
+_FILESYSTEM_API _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink);
+
+// FUNCTION file_size
+_FILESYSTEM_API _NODISCARD size_t __cdecl file_size(const path& _Target,
+    const file_attributes _Attributes, const file_flags _Flags);
+_FILESYSTEM_API _NODISCARD size_t __cdecl file_size(const path& _Target);
+
+// FUNCTION exists
+_FILESYSTEM_API _NODISCARD bool __cdecl exists(const file_status _Status) noexcept;
+_FILESYSTEM_API _NODISCARD bool __cdecl exists(const path& _Target) noexcept;
+
+// FUNCTION hard_link_count
+_FILESYSTEM_API _NODISCARD size_t __cdecl hard_link_count(const path& _Target,
+    const file_attributes _Attributes, const file_flags _Flags);
+_FILESYSTEM_API _NODISCARD size_t __cdecl hard_link_count(const path& _Target);
+
+// FUNCTION is_directory
+_FILESYSTEM_API _NODISCARD bool __cdecl is_directory(const file_status _Status) noexcept;
+_FILESYSTEM_API _NODISCARD bool __cdecl is_directory(const path& _Target) noexcept;
+
+// FUNCTION is_empty
+_FILESYSTEM_API _NODISCARD bool __cdecl is_empty(const path& _Target);
+
+// FUNCTION is_junction
+_FILESYSTEM_API _NODISCARD bool __cdecl is_junction(const file_status _Status) noexcept;
+_FILESYSTEM_API _NODISCARD bool __cdecl is_junction(const path& _Target) noexcept;
+
+// FUNCTION is_other
+_FILESYSTEM_API _NODISCARD bool __cdecl is_other(const file_status _Status) noexcept;
+_FILESYSTEM_API _NODISCARD bool __cdecl is_other(const path& _Target) noexcept;
+
+// FUNCTION is_regular_file
+_FILESYSTEM_API _NODISCARD bool __cdecl is_regular_file(const file_status _Status) noexcept;
+_FILESYSTEM_API _NODISCARD bool __cdecl is_regular_file(const path& _Target) noexcept;
+
+// FUNCTION is_symlink
+_FILESYSTEM_API _NODISCARD bool __cdecl is_symlink(const file_status _Status) noexcept;
+_FILESYSTEM_API _NODISCARD bool __cdecl is_symlink(const path& _Target) noexcept;
+
+// FUNCTION last_write_time
+_FILESYSTEM_API _NODISCARD file_time __cdecl last_write_time(const path& _Target);
+
+// FUNCTION lines_count
+_FILESYSTEM_API _NODISCARD size_t __cdecl lines_count(const path& _Target);
+
+// FUNCTION read_all
+_FILESYSTEM_API _NODISCARD vector<path> __cdecl read_all(const path& _Target);
+
+// FUNCTION read_back
+_FILESYSTEM_API _NODISCARD path __cdecl read_back(const path& _Target);
+
+// FUNCTION read_front
+_FILESYSTEM_API _NODISCARD path __cdecl read_front(const path& _Target);
+
+// FUNCTION read_inside
+_FILESYSTEM_API _NODISCARD path __cdecl read_inside(const path& _Target, const size_t _Line);
+
+// FUNCTION remove
+_FILESYSTEM_API _NODISCARD bool __cdecl remove(const path& _Path);
+
+// FUNCTION remove_all
+_FILESYSTEM_API _DEPRECATED(remove_all) _NODISCARD bool __cdecl remove_all(const path& _Path, size_t _Count);
+_FILESYSTEM_API _DEPRECATED(remove_all) _NODISCARD bool __cdecl remove_all(const path& _Path);
+
+// FUNCTION remove_line
+_FILESYSTEM_API _NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line);
+
+// FUNCTION rename
+_FILESYSTEM_API _NODISCARD bool __cdecl rename(const path& _Old, const path& _New, const rename_options _Flags);
+_FILESYSTEM_API _NODISCARD bool __cdecl rename(const path& _Old, const path& _New);
+
+// FUNCTION write_back
+_FILESYSTEM_API _NODISCARD bool __cdecl write_back(const path& _Target, const path& _Writable);
+
+// FUNCTION write_front
+_FILESYSTEM_API _NODISCARD bool __cdecl write_front(const path& _Target, const path& _Writable);
+
+// FUNCTION write_inside
+_FILESYSTEM_API _NODISCARD bool __cdecl write_inside(const path& _Target, const path& _Writable, const size_t _Line);
+
+// FUNCTION write_instead
+_FILESYSTEM_API _NODISCARD bool __cdecl write_instead(const path& _Target, const path& _Writable, const size_t _Line);
+
+_EXPERIMENTAL_END
+_FILESYSTEM_END
+
+#pragma warning(pop)
+#endif // !_HAS_WINDOWS
+#endif // _FILESYSTEM_HPP_
