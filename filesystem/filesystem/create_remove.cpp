@@ -69,18 +69,16 @@ _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink, co
 }
 
 _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink) {
-    const symlink_flags _Flags = is_directory(_To) ? symlink_flags::directory | symlink_flags::allow_unprivileged
+    const auto _Flags = is_directory(_To) ? symlink_flags::directory | symlink_flags::allow_unprivileged
         : symlink_flags::file | symlink_flags::allow_unprivileged;
 
     return create_symlink(_To, _Symlink, _Flags);
 }
 
-
-
 // FUNCTION remove
 _NODISCARD bool __cdecl remove(const path& _Path) { // removes files and directories
-    const bool _Result = is_directory(_Path) ? RemoveDirectoryW(_Path.generic_wstring().c_str()) != 0
-        : DeleteFileW(_Path.generic_wstring().c_str()) != 0;
+    const bool _Result = is_directory(_Path) ? _CSTD RemoveDirectoryW(_Path.generic_wstring().c_str()) != 0
+        : _CSTD DeleteFileW(_Path.generic_wstring().c_str()) != 0;
 
     if (!_Result) { // failed to remove file
         _Throw_fs_error("failed to remove file", error_type::runtime_error, "remove");
@@ -98,6 +96,40 @@ _NODISCARD bool __cdecl remove_all(const path& _Path) {
     return false;
 }
 
+// FUNCTION remove_line
+_NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line) {
+    if (!exists(_Target)) { // file not found
+        _Throw_fs_error("file not found", error_type::runtime_error, "remove_line");
+    }
+
+    const auto _All      = read_all(_Target);
+    const auto _Count    = _All.size();
+    const auto _Expected = _Count - 1; // count of lines after removed
+
+    if (_Line < 1 || _Line > _Count || _Expected < 0) { // invalid line
+        _Throw_fs_error("invalid line", error_type::invalid_argument, "remove_line");
+    }
+
+    // clear _Target and write to him the newest content
+    ofstream _File;
+    _File.open(_Target.generic_string());
+    _File.clear();
+    _File.close();
+
+    for (size_t _Idx = 0; _Idx < _Count; ++_Idx) {
+        if (_Idx + 1 != _Line) { // skip removed line
+            write_back(_Target, _All[_Idx]);
+        }
+    }
+
+    if (lines_count(_Target) != _Expected) { // failed to remove line
+        _Throw_fs_error("failed to remove line", error_type::runtime_error, "remove_line");
+    }
+
+    // if won't throw an exception, will be able to return true
+    return true;
+}
+
 // FUNCTION rename
 _NODISCARD bool __cdecl rename(const path& _Old, const path& _New, const rename_options _Flags) {
     const bool _Result = MoveFileExW(_Old.generic_wstring().c_str(),
@@ -111,7 +143,7 @@ _NODISCARD bool __cdecl rename(const path& _Old, const path& _New, const rename_
 }
 
 _NODISCARD bool __cdecl rename(const path& _Old, const path& _New) {
-    const rename_options _Flags = rename_options::copy | rename_options::replace;
+    constexpr auto _Flags = rename_options::copy | rename_options::replace;
     return rename(_Old, _New, _Flags);
 }
 
