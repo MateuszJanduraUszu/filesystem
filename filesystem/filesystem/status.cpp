@@ -268,6 +268,22 @@ _NODISCARD const size_t __thiscall directory_data::total_count() const noexcept 
     return this->_Counts[5];
 }
 
+// FUNCTION change_attributes
+_NODISCARD bool __cdecl change_attributes(const path& _Target, const file_attributes _Newattr) {
+    if (!exists(_Target)) { // file/directory not found
+        _Throw_fs_error("path not found", error_type::runtime_error, "change_attributes");
+    }
+
+    const bool _Result = _CSTD SetFileAttributesW(_Target.generic_wstring().c_str(),
+        static_cast<DWORD>(_Newattr)) != 0;
+
+    if (!_Result) { // failed to change attributes
+        _Throw_fs_error("failed to change attributes", error_type::runtime_error, "change_attributes");
+    }
+
+    return _Result;
+}
+
 // FUNCTION creation_time
 _NODISCARD file_time __cdecl creation_time(const path& _Target) {
     if (!exists(_Target)) { // file/directory not found

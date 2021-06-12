@@ -714,6 +714,9 @@ private:
     array<size_t, 6> _Counts; // count of directorires, junctions, others, regulars, symlinks and total
 };
 
+// FUNCTION change_attributes
+_FILESYSTEM_API _NODISCARD bool __cdecl change_attributes(const path& _Target, const file_attributes _Newattr);
+
 // FUNCTION creation_data
 _FILESYSTEM_API _NODISCARD file_time __cdecl creation_time(const path& _Target);
 
