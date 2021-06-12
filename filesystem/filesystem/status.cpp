@@ -115,6 +115,159 @@ _NODISCARD const file_type __thiscall file_status::type() const noexcept {
     return this->_Type;
 }
 
+// FUNCTION directory_data::directory_data
+__thiscall directory_data::directory_data() noexcept {
+    this->_Init();
+    this->_Refresh(); // get the latest informaions
+}
+
+__cdecl directory_data::directory_data(const path& _Path) noexcept {
+    this->_Init();
+    this->_Path = _Path; // update current working path
+    this->_Refresh(); // get the latest informaions
+}
+
+// FUNCTION directory_data::_Init
+void __thiscall directory_data::_Init() noexcept {
+    this->_Path = {};
+
+    for (size_t _Idx = 0; _Idx < this->_Counts.size(); ++_Idx) {
+        this->_Counts[_Idx] = 0;
+        this->_Names[_Idx]  = {};
+    }
+}
+
+// FUNCTION directory_data::_Refresh
+void __thiscall directory_data::_Refresh() noexcept {
+    if (!exists(this->_Path)) { // directory not found
+        _Throw_fs_error("directory not found", error_type::runtime_error, "_Refresh");
+    }
+
+    // _Path must be directory
+    if (!is_directory(this->_Path) && !is_junction(this->_Path)
+        && !_CSTD PathIsDirectoryW(this->_Path.generic_wstring().c_str())) { // expected directory
+        _Throw_fs_error("expected directory", error_type::runtime_error, "_Refresh");
+    }
+
+    if (!is_empty(this->_Path)) {
+        WIN32_FIND_DATAW _Data;
+        const HANDLE _Handle = _CSTD FindFirstFileExW(path(this->_Path + LR"(\*)").generic_wstring().c_str(),
+            FindExInfoBasic, &_Data, FindExSearchNameMatch, nullptr, 0);
+
+        if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
+            _Throw_fs_error("failed to get handle", error_type::runtime_error, "_Refresh");
+        }
+
+        vector<path> _All;
+
+        do { // get all types, they will be separated later
+            _All.push_back(static_cast<const wchar_t*>(_Data.cFileName));
+        } while (_CSTD FindNextFileW(_Handle, &_Data));
+        _CSTD FindClose(_Handle);
+
+        this->_Reset(); // clear everything
+        path _Precise; // creates full path to _All[_Idx]
+
+        for (const auto& _Elem : _All) {
+            if (_Elem != "." && _Elem != "..") { // skip dots
+                _Precise = this->_Path + LR"(\)" + _Elem;
+
+                if (is_directory(_Precise)) { // directory
+                    this->_Names[0].push_back(_Elem);
+                } else if (is_junction(_Precise)) { // junction (as directory)
+                    this->_Names[1].push_back(_Elem);
+                } else if (is_other(_Precise)) { // other
+                    this->_Names[2].push_back(_Elem);
+                } else if (is_regular_file(_Precise)) { // regular file
+                    this->_Names[3].push_back(_Elem);
+                } else if (is_symlink(_Precise)) { // symlink (directory or file)
+                    this->_Names[4].push_back(_Elem);
+                }
+
+                this->_Names[5].push_back(_Elem); // _Names[5] (total) takes every type
+            }
+        }
+
+        for (size_t _Idx = 0; _Idx < this->_Names.size(); ++_Idx) {
+            this->_Counts[_Idx] = this->_Names[_Idx].size();
+        }
+
+        return; // that's all if _Path isn't empty
+    }
+
+    // if _Path is empty, leave variables without value
+    this->_Reset();
+}
+
+// FUNCTION directory_data::_Reset
+void __thiscall directory_data::_Reset() noexcept {
+    // _Init() cannot be used here, because removes value from _Path
+    for (size_t _Idx = 0; _Idx < this->_Counts.size(); ++_Idx) {
+        this->_Counts[_Idx] = 0;
+        this->_Names[_Idx].clear();
+    }
+}
+
+// FUNCTION directory_data::directories
+_NODISCARD const vector<path>& __thiscall directory_data::directories() const noexcept {
+    return this->_Names[0];
+}
+
+// FUNCTION directory_data::directories_count
+_NODISCARD const size_t __thiscall directory_data::directories_count() const noexcept {
+    return this->_Counts[0];
+}
+
+// FUNCTION directory_data::junctions
+_NODISCARD const vector<path>& __thiscall directory_data::junctions() const noexcept {
+    return this->_Names[1];
+}
+
+// FUNCTION directory_data::junctions_count
+_NODISCARD const size_t __thiscall directory_data::junctions_count() const noexcept {
+    return this->_Counts[1];
+}
+
+// FUNCTION directory_data::others
+_NODISCARD const vector<path>& __thiscall directory_data::others() const noexcept {
+    return this->_Names[2];
+}
+
+// FUNCTION directory_data::others_count
+_NODISCARD const size_t __thiscall directory_data::others_count() const noexcept {
+    return this->_Counts[2];
+}
+
+// FUNCTION directory_data::regular_files
+_NODISCARD const vector<path>& __thiscall directory_data::regular_files() const noexcept {
+    return this->_Names[3];
+}
+
+// FUNCTION directory_data::regular_files_count
+_NODISCARD const size_t __thiscall directory_data::regular_files_count() const noexcept {
+    return this->_Counts[3];
+}
+
+// FUNCTION directory_data::symlinks
+_NODISCARD const vector<path>& __thiscall directory_data::symlinks() const noexcept {
+    return this->_Names[4];
+}
+
+// FUNCTION directory_data::symlinks_count
+_NODISCARD const size_t __thiscall directory_data::symlinks_count() const noexcept {
+    return this->_Counts[4];
+}
+
+// FUNCTION directory_data::total
+_NODISCARD const vector<path>& __thiscall directory_data::total() const noexcept {
+    return this->_Names[5];
+}
+
+// FUNCTION directory_data::total_count
+_NODISCARD const size_t __thiscall directory_data::total_count() const noexcept {
+    return this->_Counts[5];
+}
+
 // FUNCTION creation_time
 _NODISCARD file_time __cdecl creation_time(const path& _Target) {
     if (!exists(_Target)) { // file/directory not found
@@ -170,7 +323,7 @@ _NODISCARD bool __cdecl exists(const path& _Target) noexcept {
 _NODISCARD size_t __cdecl hard_link_count(const path& _Target,
     const file_attributes _Attributes, const file_flags _Flags) { // counts hard links to _Target
     const DWORD _Attr_or_flags = is_directory(_Target) || is_junction(_Target)
-        || PathIsDirectoryW(_Target.generic_wstring().c_str()) ?
+        || _CSTD PathIsDirectoryW(_Target.generic_wstring().c_str()) ?
         static_cast<DWORD>(_Flags) : static_cast<DWORD>(_Attributes);
     
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
@@ -210,7 +363,7 @@ _NODISCARD bool __cdecl is_empty(const path& _Target) {
         _Throw_fs_error("path not found", error_type::runtime_error, "is_empty");
     }
 
-    return { is_directory(_Target) || is_junction(_Target) || PathIsDirectoryW(_Target.generic_wstring().c_str())
+    return { is_directory(_Target) || is_junction(_Target) || _CSTD PathIsDirectoryW(_Target.generic_wstring().c_str())
         ? _CSTD PathIsDirectoryEmptyW(_Target.generic_wstring().c_str()) == 1 : file_size(_Target) == 0 };
 }
 
@@ -266,7 +419,7 @@ _NODISCARD file_time __cdecl last_write_time(const path& _Target) {
     }
 
     struct stat _Stats;
-    stat(_Target.generic_string().c_str(), &_Stats);
+    _CSTD stat(_Target.generic_string().c_str(), &_Stats);
 
     const tm* _Time = _CSTD localtime(&_Stats.st_mtime);
     return { _Time->tm_yday + 1900, _Time->tm_mon + 1, _Time->tm_mday,

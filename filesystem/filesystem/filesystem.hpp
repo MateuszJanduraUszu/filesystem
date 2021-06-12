@@ -37,10 +37,6 @@
 #endif // _FILESYSTEM_API
 
 // attributes
-#ifndef _NOATTRIBUTE
-#define _NOATTRIBUTE
-#endif // _NOATTRIBUTE
-
 #ifndef _NODISCARD
 #define _NODISCARD [[nodiscard]]
 #endif // _NODISCARD
@@ -113,6 +109,7 @@ _NODISCARD constexpr _Bitsrc __cdecl operator|(const _Bitsrc _Left, const _Bitsr
 #pragma warning(disable : 4251) // C4251: requires dll library
 
 #include <algorithm>
+#include <array>
 #include <codecvt>
 #include <fstream>
 #include <iostream>
@@ -125,6 +122,7 @@ _NODISCARD constexpr _Bitsrc __cdecl operator|(const _Bitsrc _Left, const _Bitsr
 
 // STD allocators
 using _STD allocator;
+using _STD array;
 using _STD vector;
 
 // STD characters
@@ -585,6 +583,8 @@ enum class _FILESYSTEM_API file_share : unsigned int {
     remove = 0x4 // is able to remove file/directory
 };
 
+_BITOPS(file_share)
+
 // CLASS status
 class _FILESYSTEM_API file_status {
 public:
@@ -648,6 +648,71 @@ enum class _FILESYSTEM_API symlink_flags {
 };
 
 _BITOPS(symlink_flags)
+
+// CLASS directory_data
+class _FILESYSTEM_API directory_data { // basic informations about files and directories inside directory
+public:
+    __thiscall directory_data() noexcept;
+    explicit __cdecl directory_data(const directory_data&) noexcept = delete;
+    explicit __cdecl directory_data(directory_data&&) noexcept      = delete;
+    virtual __thiscall ~directory_data() noexcept                   = default;
+    directory_data& __cdecl operator=(const directory_data&) noexcept = delete;
+    directory_data& __cdecl operator=(directory_data&&) noexcept = delete;
+
+    explicit __cdecl directory_data(const path& _Path) noexcept;
+
+public:
+    // returns names of directories inside _Path
+    _NODISCARD const vector<path>& __thiscall directories() const noexcept;
+
+    // returns count of directories inside _Path
+    _NODISCARD const size_t __thiscall directories_count() const noexcept;
+
+    // returns names of junctions inside _Path
+    _NODISCARD const vector<path>& __thiscall junctions() const noexcept;
+
+    // returns count of junctions inside _Path
+    _NODISCARD const size_t __thiscall junctions_count() const noexcept;
+    
+    // returns names of other types inside _Path
+    _NODISCARD const vector<path>& __thiscall others() const noexcept;
+
+    // returns count of other types inside _Path
+    _NODISCARD const size_t __thiscall others_count() const noexcept;
+  
+    // returns names of regular files inside _Path
+    _NODISCARD const vector<path>& __thiscall regular_files() const noexcept;
+
+    // returns count of regular files inside _Path
+    _NODISCARD const size_t __thiscall regular_files_count() const noexcept;
+    
+    // returns names of symbolic links inside _Path
+    _NODISCARD const vector<path>& __thiscall symlinks() const noexcept;
+
+    // returns count of symbolic links inside _Path
+    _NODISCARD const size_t __thiscall symlinks_count() const noexcept;
+    
+    // returns names of every type inside _Path
+    _NODISCARD const vector<path>& __thiscall total() const noexcept;
+
+    // returns count of every type inside _Path
+    _NODISCARD const size_t __thiscall total_count() const noexcept;
+
+private:
+    // inits all
+    void __thiscall _Init() noexcept;
+
+    // sets the newest informations
+    void __thiscall _Refresh() noexcept;
+
+    // backs variables to original state
+    void __thiscall _Reset() noexcept;
+
+private:
+    path _Path; // current working path
+    array<vector<path>, 6> _Names; // directory, junction, other, regular, symlink and total
+    array<size_t, 6> _Counts; // count of directorires, junctions, others, regulars, symlinks and total
+};
 
 // FUNCTION creation_data
 _FILESYSTEM_API _NODISCARD file_time __cdecl creation_time(const path& _Target);
@@ -736,6 +801,9 @@ _FILESYSTEM_API _NODISCARD bool __cdecl remove_line(const path& _Target, const s
 // FUNCTION rename
 _FILESYSTEM_API _NODISCARD bool __cdecl rename(const path& _Old, const path& _New, const rename_options _Flags);
 _FILESYSTEM_API _NODISCARD bool __cdecl rename(const path& _Old, const path& _New);
+
+// FUNCTION resize_file
+_FILESYSTEM_API _NODISCARD bool __cdecl resize_file(const path& _Target, const size_t _Newsize);
 
 // FUNCTION write_back
 _FILESYSTEM_API _NODISCARD bool __cdecl write_back(const path& _Target, const path& _Writable);
