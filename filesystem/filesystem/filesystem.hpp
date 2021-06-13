@@ -119,6 +119,8 @@ _NODISCARD constexpr _Bitsrc __cdecl operator|(const _Bitsrc _Left, const _Bitsr
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <Windows.h>
+#include <winioctl.h>
 
 // STD allocators
 using _STD allocator;
@@ -244,6 +246,7 @@ enum class error_type : unsigned int { // error type for _Throw_system_error
 
 // ENUM CLASS code_page
 enum class code_page {
+    acp  = 0, // ansi code page
     utf8 = 65001 // default code page
 };
 
@@ -495,23 +498,25 @@ _FILESYSTEM_API _NODISCARD bool __cdecl current_path(const path& _Path);
 
 // ENUM CLASS file_access
 enum class _FILESYSTEM_API file_access : unsigned long {
-    readonly  = 0x80000000, // file can be only readed
-    writeonly = 0x40000000, // file can be readed and overwritten
-    all       = 0x10000000 // contains read, all and execute (it's redundant in this case)
+    readonly  = 0x80000000, // GENERIC_READ, file can be only readed
+    writeonly = 0x40000000, // GENERIC_WRITE, file can be readed and overwritten
+    all       = 0x10000000 // GENERIC_ALL, contains read, all and execute (it's redundant in this case)
 };
+
+_BITOPS(file_access)
 
 // ENUM CLASS file_attributes
 enum class _FILESYSTEM_API file_attributes {
-    none          = 0,
-    readonly      = 0x0001,
-    hidden        = 0x0002,
-    system        = 0x0004, // used only by system
-    directory     = 0x0010, // is directory
-    archive       = 0x0020,
-    normal        = 0x0080, // without any attribute
-    reparse_point = 0x0400, // symbolic link or mount point
-    compressed    = 0x0800,
-    encrypted     = 0x4000, 
+    none          = 0, 
+    readonly      = 0x0001, // FILE_ATTRIBUTE_READONLY
+    hidden        = 0x0002, // FILE_ATTRIBUTE_HIDDEN
+    system        = 0x0004, // FILE_ATTRIBUTE_SYSTEM, used only by system
+    directory     = 0x0010, // FILE_ATTRIBUTE_DIRECTORY, is directory
+    archive       = 0x0020, // FILE_ATTRIBUTE_ARCHIVE
+    normal        = 0x0080, // FILE_ATTRIBUTE_NORMAL, without any attribute
+    reparse_point = 0x0400, // FILE_ATTRIBUTE_REPARSE_POINT, symbolic link or mount point
+    compressed    = 0x0800, // FILE_ATTRIBUTE_COMPRESSED
+    encrypted     = 0x4000, // FILE_ATTRIBUTE_ENCRYPTED
     unknown       = 0xFFFF
 };
 
@@ -519,17 +524,17 @@ _BITOPS(file_attributes)
 
 // ENUM CLASS file_disposition
 enum class _FILESYSTEM_API file_disposition : unsigned int {
-    only_new       = 0x1, // creates only if not exists
-    only_if_exists = 0x3, // opens only if exists
+    only_new       = 0x1, // CREATE_NEW, creates only if not exists
+    only_if_exists = 0x3, // OPEN_EXISTING, opens only if exists
 
-    force_create = 0x2, // if exists, overwrites the file
-    force_open   = 0x4 // if not exists, creates new
+    force_create = 0x2, // CREATE_ALWAYS, if exists, overwrites the file
+    force_open   = 0x4 // OPEN_ALWAYS, if not exists, creates new
 };
 
 // ENUM CLASS file_flags
 enum class _FILESYSTEM_API file_flags { // mainly for GetFileInformationByHandleEx()
-    open_reparse_point = 0x00200000,
-    backup_semantics   = 0x02000000
+    open_reparse_point = 0x00200000, // FILE_FLAG_OPEN_REPARSE_POINT
+    backup_semantics   = 0x02000000 // FILE_FLAG_BACKUP_SEMANTICS
 };
 
 _BITOPS(file_flags)
@@ -537,16 +542,16 @@ _BITOPS(file_flags)
 // ENUM CLASS file_permissions
 enum class _FILESYSTEM_API file_permissions {
     none      = 0,
-    readonly  = 0x2,
-    writeonly = 0x4,
-    all       = 0x6, // in fact, the same as writeonly
+    readonly  = 0x2, // _S_IREAD
+    writeonly = 0x4, // _S_IWRITE
+    all       = 0x6, // _S_IREAD | _S_IWRITE, in fact, the same as writeonly
     unknown   = 0xF
 };
 
 // ENUM CLASS file_reparse_tag
 enum class _FILESYSTEM_API file_reparse_tag : unsigned long {
-    mount_point = 0xA0000003L,
-    symlink     = 0xA000000CL
+    mount_point = 0xA0000003L, // IO_REPARSE_TAG_MOUNT_POINT
+    symlink     = 0xA000000CL // IO_REPARSE_TAG_SYMLINK
 };
 
 // STRUCT file_time
@@ -578,9 +583,9 @@ enum class _FILESYSTEM_API file_type : unsigned int {
 
 // ENUM CLASS file_share
 enum class _FILESYSTEM_API file_share : unsigned int {
-    read   = 0x1,
-    write  = 0x2,
-    remove = 0x4 // is able to remove file/directory
+    read   = 0x1, // FILE_SHARE_READ
+    write  = 0x2, // FILE_SHARE_WRITE
+    remove = 0x4 // FILE_SHARE_DELETE, is able to remove file/directory
 };
 
 _BITOPS(file_share)
@@ -633,9 +638,9 @@ private:
 
 // ENUM CLASS rename_options
 enum class _FILESYSTEM_API rename_options : unsigned int {
-    replace       = 0x1, // replaces existing
-    copy          = 0x2, // if moving to another volumine, copies and removes file
-    write_through = 0x8 // no returns if wasn't moved on drive
+    replace       = 0x1, // MOVEFILE_REPLACE_EXISTING, replaces existing
+    copy          = 0x2, // MOVEFILE_COPY_ALLOWED, if moving to another volumine, copies and removes file
+    write_through = 0x8 // MOVEFILE_WRITE_THROUGH, no returns if wasn't moved on drive
 };
 
 _BITOPS(rename_options)
@@ -643,8 +648,8 @@ _BITOPS(rename_options)
 // ENUM CLASS symlink_flag
 enum class _FILESYSTEM_API symlink_flags {
     file               = 0x0, // symbolic link to file
-    directory          = 0x1, // symbolic link to directory
-    allow_unprivileged = 0x2 // no need to have full access to target
+    directory          = 0x1, // SYMBOLIC_LING_FLAG_DIRECTORY, symbolic link to directory
+    allow_unprivileged = 0x2 // SYMBOLIC_LINK_FLAG_ALLWO_UNPRIVILEGED_CREATE, no need to have full access to target
 };
 
 _BITOPS(symlink_flags)
@@ -714,8 +719,51 @@ private:
     array<size_t, 6> _Counts; // count of directorires, junctions, others, regulars, symlinks and total
 };
 
+// STRUCT reparse_data_buffer
+struct _FILESYSTEM_API reparse_data_buffer { // copy of REPARSE_DATA_BUFFER
+    unsigned long _Reparse_tag; // dwReparseTag
+    uint16_t _Reparse_data_length; // wReparseDataLength
+    uint16_t _Reserved; // wReserved
+
+    union {
+        struct {
+            uint16_t _Substitute_name_offset; // SubstituteNameOffset
+            uint16_t _Substitute_name_length; // SubstituteNameLenfth
+            uint16_t _Print_name_offset; // wPrintNameOffset
+            uint16_t _Print_name_length; // wPrintNameLength
+            wchar_t _Path_buffer[1]; // cPathBuffer
+        } _Symbolic_link_reparse_buffer; // SymbolicLinkReparseBuffer
+
+        struct {
+            uint16_t _Substitute_name_offset; // SubstituteNameOffset
+            uint16_t _Substitute_name_length; // SubstituteNameLenfth
+            uint16_t _Print_name_offset; // wPrintNameOffset
+            uint16_t _Print_name_length; // wPrintNameLength
+            wchar_t _Path_buffer[1]; // cPathBuffer
+        } _Mount_point_reparse_buffer; // MountPointReparseBuffer
+    
+        struct {
+            unsigned char _Data_buffer[1]; // DataBuffer[1]
+        } _Generic_reparse_buffer; // GenericReparseBuffer
+    };
+};
+
+// STRUCT reparse_mountpoint_data_buffer
+struct _FILESYSTEM_API reparse_mountpoint_data_buffer { // copy of REPARSE_MOUNTPOINT_DATA_BUFFER
+    unsigned long _Reparse_tag; // dwReparseTag
+    unsigned long _Reparse_data_length; // dwReparseDataLength
+    uint16_t _Reserved; // wReserved
+    uint16_t _Reparse_target_length; // wReparseTargetLength
+    uint16_t _Reparse_target_maximum_length; // wReparseTargetMaximumLength
+    uint16_t _Reserved1; // wReserved1
+    wchar_t _Reparse_target[1]; // cReparseTarget
+};
+
 // FUNCTION change_attributes
 _FILESYSTEM_API _NODISCARD bool __cdecl change_attributes(const path& _Target, const file_attributes _Newattr);
+
+// FUNCTION clear
+_FILESYSTEM_API _NODISCARD bool __cdecl clear(const path& _Target);
 
 // FUNCTION creation_data
 _FILESYSTEM_API _NODISCARD file_time __cdecl creation_time(const path& _Target);
@@ -730,7 +778,7 @@ _FILESYSTEM_API _NODISCARD bool __cdecl create_file(const path& _Path);
 _FILESYSTEM_API _NODISCARD bool __cdecl create_hard_link(const path& _To, const path& _Hardlink);
 
 // FUNCTION create_junction
-_FILESYSTEM_API _DEPRECATED(create_junction) _NODISCARD bool __cdecl create_junction(const path& _To, const path& _Junction);
+_FILESYSTEM_API _NODISCARD bool __cdecl create_junction(const path& _To, const path& _Junction);
 
 // FUNCTION create_symlink
 _FILESYSTEM_API _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags);
@@ -791,12 +839,20 @@ _FILESYSTEM_API _NODISCARD path __cdecl read_front(const path& _Target);
 // FUNCTION read_inside
 _FILESYSTEM_API _NODISCARD path __cdecl read_inside(const path& _Target, const size_t _Line);
 
+// FUNCTION read_junction
+_FILESYSTEM_API _NODISCARD path __cdecl read_junction(const path& _Target);
+
+// FUNCTION read_symlink
+_FILESYSTEM_API _DEPRECATED(read_symlink()) _NODISCARD path __cdecl read_symlink(const path& _Target);
+
 // FUNCTION remove
 _FILESYSTEM_API _NODISCARD bool __cdecl remove(const path& _Path);
 
 // FUNCTION remove_all
-_FILESYSTEM_API _DEPRECATED(remove_all) _NODISCARD bool __cdecl remove_all(const path& _Path, size_t _Count);
-_FILESYSTEM_API _DEPRECATED(remove_all) _NODISCARD bool __cdecl remove_all(const path& _Path);
+_FILESYSTEM_API _NODISCARD bool __cdecl remove_all(const path& _Path);
+
+// FUNCTION remove_junction
+_FILESYSTEM_API _NODISCARD bool __cdecl remove_junction(const path& _Target);
 
 // FUNCTION remove_line
 _FILESYSTEM_API _NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line);

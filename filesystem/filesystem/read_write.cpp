@@ -12,6 +12,52 @@
 
 _FILESYSTEM_BEGIN
 _EXPERIMENTAL_BEGIN
+// FUNCTION clear
+_NODISCARD bool __cdecl clear(const path& _Target) { // if directory, removes everything inside _Target, otherwise clears file
+    if (!exists(_Target)) { // path not found
+        _Throw_fs_error("path not found", error_type::runtime_error, "clear");
+    }
+
+    if (!is_empty(_Target)) {
+        if (is_directory(_Target) || is_junction(_Target)
+            || _CSTD PathIsDirectoryW(_Target.generic_wstring().c_str())) {
+            // don't use remove_all(), because it will remove _Target as well
+            const auto _All = directory_data(_Target).total();
+
+            for (const auto& _Elem : _All) { // remove one by one if _Target is directory
+                remove(_Target + R"(\)" + _Elem); // requires full path
+            }
+
+            if (!is_empty(_Target)) { // failed to clear the directory
+                _Throw_fs_error("failed to clear the directory", error_type::runtime_error, "clear");
+            }
+
+            // if won't throw an exception, will be able to return true
+            return true;
+        } else { // file, symlink or other
+            ofstream _File;
+            _File.open(_Target.generic_wstring());
+
+            if (!_File) { // bad file
+                _Throw_fs_error("bad file", error_type::runtime_error, "clear");
+            }
+
+            _File.clear();
+            _File.close();
+
+            if (!is_empty(_Target)) { // failed to clear the file
+                _Throw_fs_error("failed to clear the file", error_type::runtime_error, "clear");
+            }
+
+            // same return as above
+            return true;
+        }
+    }
+
+    // if is empty, don't do anything
+    return true;
+}
+
 // FUNCTION lines_count
 _NODISCARD size_t __cdecl lines_count(const path& _Target) { // counts lines in _Target
     return read_all(_Target).size();
@@ -38,6 +84,8 @@ _NODISCARD vector<path> __cdecl read_all(const path& _Target) { // reads all lin
             _All.push_back(_Single);
             _Single.clear();
         }
+
+        _File.close();
 
         while (_All.back().empty()) { // ignore last empty lines
             _All.pop_back();
@@ -93,6 +141,49 @@ _NODISCARD path __cdecl read_inside(const path& _Target, const size_t _Line) { /
     }
     
     return _All[_Line - 1];
+}
+
+// FUNCTION read_junction
+_NODISCARD path __cdecl read_junction(const path& _Target) {
+    if (!is_junction(_Target)) { // _Target must be a junction
+        _Throw_fs_error("expected junction", error_type::runtime_error, "read_junction");
+    }
+
+    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
+        static_cast<DWORD>(file_access::readonly | file_access::writeonly), 0, nullptr,
+        static_cast<DWORD>(file_disposition::only_if_exists), static_cast<DWORD>(
+            file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
+
+    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
+        _Throw_fs_error("failed to get handle", error_type::runtime_error, "read_junction");
+    }
+
+    // in some cases buffer size may be larger than expeceted (16 * 1024)
+    unsigned char _Buff[MAXIMUM_REPARSE_DATA_BUFFER_SIZE - 100]; 
+    reparse_data_buffer& _Reparse_buff = reinterpret_cast<reparse_data_buffer&>(_Buff);
+    unsigned long _Returned; // returned bytes
+
+    _CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+        &_Reparse_buff, sizeof(_Buff), &_Returned, nullptr);
+    _CSTD CloseHandle(_Handle);
+
+    // check if result contains unnecessary content (prefix and sufix)
+    wstring _Reparse(_Reparse_buff._Mount_point_reparse_buffer._Path_buffer);
+
+    if (wstring(_Reparse, 0, 4) == LR"(\??\)") { // remove prefix
+        _Reparse.erase(0, 4);
+    }
+
+    if (_Reparse.back() == L'\\') { // remove sufix
+        _Reparse.pop_back();
+    }
+
+    return path(_Reparse);
+}
+
+// FUNCTION read_symlink
+_NODISCARD path __cdecl read_symlink(const path& _Target) {
+    return path();
 }
 
 // FUNCTION resize_file
