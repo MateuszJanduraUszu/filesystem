@@ -9,8 +9,6 @@
 #if !_HAS_WINDOWS
 #pragma message("The contents of <path.cpp> are available only with Windows 10.")
 #else // ^^^ !_HAS_WINDOWS ^^^ / vvv _HAS_WINDOWS vvv
-#pragma warning(push)
-#pragma warning(disable : 4834) // C4834: discard function with [nodiscard] attribute
 
 _FILESYSTEM_BEGIN
 _EXPERIMENTAL_BEGIN
@@ -500,7 +498,7 @@ _NODISCARD path& __thiscall path::fix() noexcept {
     }
 
     this->_Text = _Fixed;
-    this->make_preferred();
+    (void) this->make_preferred();
     return *this;
 }
 
@@ -547,7 +545,7 @@ _NODISCARD bool __thiscall path::has_drive() const noexcept {
     if (static_cast<int>(this->_Text[0]) >= 65
         && static_cast<int>(this->_Text[0]) <= 90) { // only big letters
         return true;
-    } else if (static_cast<int>(this->_Text[0]) >- 97
+    } else if (static_cast<int>(this->_Text[0]) >= 97
         && static_cast<int>(this->_Text[0]) <= 122) { // only small letters
         return true;
     } else { // other characters
@@ -629,8 +627,6 @@ _NODISCARD bool __thiscall path::is_absolute() const noexcept {
     // path with drive and/or root directory must be absolute
     if (this->has_drive() || this->has_root_directory()) {
         return true;
-    } else { // path with some directories (no root)
-        return false;
     }
 
     return false;
@@ -701,7 +697,7 @@ _NODISCARD path& __cdecl path::remove_file(const bool _With_slash) noexcept {
 // FUNCTION path::replace_extension
 _NODISCARD path& __cdecl path::replace_extension(const path& _Replacement) {
     if (this->has_extension()) {
-        this->remove_extension();
+        (void) this->remove_extension();
         this->_Text += _Replacement.generic_string()[0] == '.' ?
             _Replacement.generic_string() : "." + _Replacement.generic_string();
         this->_Check_size();
@@ -713,7 +709,7 @@ _NODISCARD path& __cdecl path::replace_extension(const path& _Replacement) {
 // FUNCTION path::replace_file
 _NODISCARD path& __cdecl path::replace_file(const path& _Replacement) {
     if (this->has_file()) {
-        this->remove_file(_Replacement.generic_string()[0] == _Expected_slash
+        (void) this->remove_file(_Replacement.generic_string()[0] == _Expected_slash
             || _Replacement.generic_string()[0] == _Unexpected_slash);
         this->_Text += _Replacement.generic_string();
         this->_Check_size();
@@ -727,7 +723,7 @@ _NODISCARD path& __cdecl path::replace_stem(const path& _Replacement) {
     if (this->has_stem()) {
         const auto _Ext = this->extension();
 
-        this->remove_file(false);
+        (void) this->remove_file(false);
         this->_Text += _Replacement.generic_string();
         this->_Text += "." + _Ext.generic_string();
         this->_Check_size();
@@ -777,32 +773,30 @@ _NODISCARD path __thiscall path::stem() const noexcept {
 
 // FUNCTION current_path
 _NODISCARD path __stdcall current_path() noexcept {
-    wchar_t _Buff[MAX_PATH] = {};
-    const bool _Result      = _CSTD GetCurrentDirectoryW(MAX_PATH, _Buff) != 0;
-
-    if (!_Result) { // failed to get current path
+    wchar_t _Buff[MAX_PATH];
+    if (!_CSTD GetCurrentDirectoryW(MAX_PATH, _Buff)) { // failed to get current path
         _Throw_fs_error("failed to get current path", error_type::runtime_error, "current_path");
+
     }
 
+    // if won't throw an exception, will be able to return true
     return path(wstring(_Buff));
 }
 
-_NODISCARD bool __cdecl current_path(const path& _Path) {
+_NODISCARD bool __cdecl current_path(const path& _Path) { // sets new current path
     // path cannot be longer than 260 characters
     if (_Path.generic_string().size() > static_cast<size_t>(MAX_PATH)) {
         _Throw_system_error("set_path", "invalid length", error_type::length_error);
     }
 
-    const bool _Result = _CSTD SetCurrentDirectoryW(_Path.generic_wstring().c_str()) != 0;
-
-    if (!_Result) { // failed to set new path
+    if (!_CSTD SetCurrentDirectoryW(_Path.generic_wstring().c_str())) { // failed to set new path
         _Throw_fs_error("failed to set new path", error_type::runtime_error, "set_path");
     }
 
-    return _Result;
+    // if won't throw an exception, will be able to return true
+    return true;
 }
 _EXPERIMENTAL_END
 _FILESYSTEM_END
 
-#pragma warning(pop)
 #endif // !_HAS_WINDOWS

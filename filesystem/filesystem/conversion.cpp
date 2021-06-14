@@ -10,7 +10,7 @@
 #pragma message("The contents of <conversion.cpp> are available only with Windows 10.")
 #else // ^^^ !_HAS_WINDOWS ^^^ / vvv _HAS_WINDOWS vvv
 #pragma warning(push)
-#pragma warning(disable : 4996) // C4996: using deprecated content
+#pragma warning(disable : 4996) // C4996: using deprecated content (<codecvt>)
 
 _FILESYSTEM_BEGIN
 _EXPERIMENTAL_BEGIN
@@ -29,10 +29,8 @@ _NODISCARD wstring __cdecl _Convert_narrow_to_wide(const code_page _Code_page, c
         // _Output size must be same as _Input size
         _Output.resize(_Output_size, L' ');
 
-        const int _Result = _CSTD MultiByteToWideChar(static_cast<UINT>(_Code_page), MB_ERR_INVALID_CHARS,
-            _Input.data(), _Input_size, _Output.data(), _Output_size);
-
-        if (_Result == 0) { // failed to convert multi byte to wide characters
+        if (!_CSTD MultiByteToWideChar(static_cast<uint32_t>(_Code_page), MB_ERR_INVALID_CHARS,
+            _Input.data(), _Input_size, _Output.data(), _Output_size)) { // failed to convert multi byte to wide characters
             _Throw_system_error("_Convert_narrow_to_wide", "conversion failed", error_type::runtime_error);
         }
 
@@ -61,10 +59,9 @@ _NODISCARD string __cdecl _Convert_wide_to_narrow(const code_page _Code_page, co
         // _Output size must be same as _Input size
         _Output.resize(_Output_size, ' ');
 
-        const int _Result = _CSTD WideCharToMultiByte(static_cast<UINT>(_Code_page), WC_ERR_INVALID_CHARS,
-            _Input.data(), _Input_size, _Output.data(), _Output_size, nullptr, nullptr);
-        
-        if (_Result == 0) { // failed to convert wide to multi byte characters
+        if (!_CSTD WideCharToMultiByte(static_cast<uint32_t>(_Code_page), WC_ERR_INVALID_CHARS,
+            _Input.data(), _Input_size, _Output.data(), _Output_size, nullptr, nullptr)) { 
+            // failed to convert wide to multi byte charracters 
             _Throw_system_error("_Convert_wide_to_narrow", "conversion failed", error_type::runtime_error);
         }
 
@@ -90,17 +87,14 @@ _NODISCARD string __cdecl _Convert_utf_to_narrow(const basic_string_view<_Elem, 
 
         _Output.reserve(_Input.size()); // reserve place for new data
 
-        if constexpr (_STD is_same_v<_Elem, char8_t>) {
-            wstring_convert<codecvt_utf8<char8_t>, char8_t> _Cvt;
-            _Output = _Cvt.to_bytes(_Input.data());
-        } else if constexpr (_STD is_same_v<_Elem, char16_t>) {
-            wstring_convert<codecvt_utf8_utf16<char16_t>, char16_t> _Cvt;
-            _Output = _Cvt.to_bytes(_Input.data());
-        } else if constexpr (_STD is_same_v<_Elem, char32_t>) {
-            wstring_convert<codecvt_utf8<char32_t>, char32_t> _Cvt;
-            _Output = _Cvt.to_bytes(_Input.data());
+        if constexpr (_STD is_same_v<_Elem, char8_t>) { // from char8_t
+            _Output = wstring_convert<codecvt_utf8<char8_t>, char8_t>().to_bytes(_Input.data());
+        } else if constexpr (_STD is_same_v<_Elem, char16_t>) { // from char16_t
+            _Output = wstring_convert<codecvt_utf8_utf16<char16_t>, char16_t>().to_bytes(_Input.data());
+        } else if constexpr (_STD is_same_v<_Elem, char32_t>) { // from char32_t
+            _Output = wstring_convert<codecvt_utf8<char32_t>, char32_t>().to_bytes(_Input.data());
         }
-
+        
         return _Output;
     }
 
@@ -125,15 +119,12 @@ _NODISCARD basic_string<_Elem, _Traits, _Alloc> __cdecl  _Convert_narrow_to_utf(
 
         _Output.reserve(_Input.size()); // reserve place for new data
 
-        if constexpr (_STD is_same_v<_Elem, char8_t>) {
-            wstring_convert<codecvt_utf8<char8_t>, char8_t> _Cvt;
-            _Output = _Cvt.from_bytes(_Input.data());
-        } else if constexpr (_STD is_same_v<_Elem, char16_t>) {
-            wstring_convert<codecvt_utf8_utf16<char16_t>, char16_t> _Cvt;
-            _Output = _Cvt.from_bytes(_Input.data());
-        } else if constexpr (_STD is_same_v<_Elem, char32_t>) {
-            wstring_convert<codecvt_utf8<char32_t>, char32_t> _Cvt;
-            _Output = _Cvt.from_bytes(_Input.data());
+        if constexpr (_STD is_same_v<_Elem, char8_t>) { // to char8_t
+            _Output = wstring_convert<codecvt_utf8<char8_t>, char8_t>().from_bytes(_Input.data());
+        } else if constexpr (_STD is_same_v<_Elem, char16_t>) { // to char16_t
+            _Output = wstring_convert<codecvt_utf8_utf16<char16_t>, char16_t>().from_bytes(_Input.data());
+        } else if constexpr (_STD is_same_v<_Elem, char32_t>) { // to char32_t
+            _Output = wstring_convert<codecvt_utf8<char32_t>, char32_t>().from_bytes(_Input.data());
         }
 
         return _Output;
