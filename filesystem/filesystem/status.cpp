@@ -35,8 +35,82 @@ void __thiscall file_status::_Init() noexcept {
     this->_Type      = file_type::none;
 }
 
+// experimental file_status::_Refresh()
+#define _FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH 1
+
 // FUNCTION file_status::_Refresh
 void __thiscall file_status::_Refresh() noexcept {
+    // At the moment you can choose between stat(), _waccess() and REPARSE_DATA_BUFFER,
+    // (just define _FILESYSTEM_SUPPORTS_EXPERMIENTAL_FILE_STATUS_REFRESH as 1, if you want to use experimental _Refresh()
+    // or as 0, if you want to use old _Refresh()) but we're going to fully replace stat() and _waccess()
+    // with REPARSE_DATA_BUFFER and REPARSE_MOUNTPOINT_DATA_BUFFER.
+#if _FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH
+    this->_Update_attribute(static_cast<file_attributes>(_CSTD GetFileAttributesW(this->_Path.generic_wstring().c_str())));
+    const auto _Err = _CSTD GetLastError(); // if path not found, GetLastError() value will be as 2 (ERROR_FILE_NOT_FOUND) or 3 (ERROR_PATH_NOT_FOUND) 
+    
+    if (_Err == ERROR_PATH_NOT_FOUND || _Err == ERROR_FILE_NOT_FOUND) { // _Path not found
+        this->_Update_attribute(file_attributes::none);
+        this->_Update_permissions(file_permissions::none);
+        this->_Update_type(file_type::not_found);
+        return; // break here
+    }
+
+    // check _Path attributes
+    if ((this->_Attribute & file_attributes::readonly) == file_attributes::readonly) { // read-only
+        this->_Update_permissions(file_permissions::readonly);
+    } else { // full access
+        this->_Update_permissions(file_permissions::all);
+    }
+
+    // Theoretically we could use FindFirstFile() with WIN32_FIND_DATAW, because it's a bit faster,
+    // but when we use DeviceIoControl(), we are on lower level, where we can define buffer size etc.
+    // It's safer as well, because if _Path is bad, there're only execptions from us.
+    
+    // checks if _Path is a reparse point, if is check type
+    if ((this->_Attribute & file_attributes::reparse_point) == file_attributes::reparse_point) {
+        // In some cases _Refresh() may using more bytes than defaule maximum (16384 bytes).
+        // To avoid C6262 warning and potential threat, buffor size is set to 16284 bytes.
+        // It shouldn't change result and it's safer. If your /analyse:stacksize is set to larger value,
+        // you can change buffer size.
+        unsigned char _Buff[MAXIMUM_REPARSE_DATA_BUFFER_SIZE - 100];
+        reparse_data_buffer& _Reparse_buff = reinterpret_cast<reparse_data_buffer&>(_Buff);
+        unsigned long _Bytes; // returned bytes from DeviceIoControl
+
+        const HANDLE _Handle = _CSTD CreateFileW(this->_Path.generic_wstring().c_str(),
+            static_cast<unsigned long>(file_access::all), static_cast<unsigned long>(file_share::read),
+            nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
+                file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
+
+        if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
+            _Throw_fs_error("failed to get handle", error_type::runtime_error, "_Refresh");
+        }
+
+        if (!_CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+            &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to get informations
+            _Throw_fs_error("failed to get informations", error_type::runtime_error, "_Refresh");
+        }
+        
+        _CSTD CloseHandle(_Handle);
+
+        if (_Reparse_buff._Reparse_tag == static_cast<unsigned long>(file_reparse_tag::mount_point)) { // junction
+            this->_Update_type(file_type::junction);
+            return;
+        }
+
+        if (_Reparse_buff._Reparse_tag == static_cast<unsigned long>(file_reparse_tag::symlink)) {
+            this->_Update_type(file_type::symlink);
+            return;
+        }
+
+        // all others are file or directory types
+    }
+
+    if ((this->_Attribute & file_attributes::directory) == file_attributes::directory) { // directory
+        this->_Update_type(file_type::directory);
+    } else { // regular file
+        this->_Update_type(file_type::regular);
+    }
+#else // ^^^ _FILESYSTEM_EXPERIMENTAL_REFRESH ^^^ / vvv !_FILESYSTEM_EXPERIMENTAL_REFRESH vvv
     if (_CSTD stat(this->_Path.generic_string().c_str(), &this->_Stats) == 0) { // found file
         if (_CSTD _waccess_s(this->_Path.generic_wstring().c_str(),
             static_cast<int>(file_permissions::readonly) == EACCES)) { // read-only
@@ -67,7 +141,7 @@ void __thiscall file_status::_Refresh() noexcept {
                 return;
             }
 
-            // all others are not supported
+            // all others are not files or directories
         }
 
         if ((this->_Attribute & file_attributes::directory) == file_attributes::directory) {
@@ -83,6 +157,7 @@ void __thiscall file_status::_Refresh() noexcept {
     this->_Update_attribute(file_attributes::unknown);
     this->_Update_permissions(file_permissions::unknown);
     this->_Update_type(file_type::not_found);
+#endif // _FILESYSTEM_SUPPORTS_EXPERMENTAL_FILE_STATUS_REFRESH
 }
 
 // FUNCTION file_status::_Update_attribute
@@ -90,7 +165,7 @@ void __cdecl file_status::_Update_attribute(const file_attributes _Newattrib) no
     this->_Attribute = _Newattrib;
 }
 
-// FUNCTION file_status::_Update_access
+// FUNCTION file_status::_Update_permissions
 void __cdecl file_status::_Update_permissions(const file_permissions _Newperms) noexcept {
     this->_Perms = _Newperms;
 }
@@ -100,14 +175,14 @@ void __cdecl file_status::_Update_type(const file_type _Newtype) noexcept {
     this->_Type = _Newtype;
 }
 
-// FUNCTION file_status::access
-_NODISCARD const file_permissions __thiscall file_status::permissions() const noexcept {
-    return this->_Perms;
-}
-
 // FUNCTION file_status::attribute
 _NODISCARD const file_attributes __thiscall file_status::attribute() const noexcept {
     return this->_Attribute;
+}
+
+// FUNCTION file_status::permissions
+_NODISCARD const file_permissions __thiscall file_status::permissions() const noexcept {
+    return this->_Perms;
 }
 
 // FUNCTION file_status::type
@@ -184,7 +259,7 @@ void __thiscall directory_data::_Refresh() noexcept {
                     this->_Names[4].push_back(_Elem);
                 }
 
-                this->_Names[5].push_back(_Elem); // _Names[5] (total) takes every type
+                this->_Names[5].push_back(_Elem); // _Names[5] (total()) takes every type
             }
         }
 
@@ -274,14 +349,33 @@ _NODISCARD bool __cdecl change_attributes(const path& _Target, const file_attrib
         _Throw_fs_error("path not found", error_type::runtime_error, "change_attributes");
     }
 
-    const bool _Result = _CSTD SetFileAttributesW(_Target.generic_wstring().c_str(),
-        static_cast<DWORD>(_Newattr)) != 0;
-
-    if (!_Result) { // failed to change attributes
+    if (!_CSTD SetFileAttributesW(_Target.generic_wstring().c_str(),
+        static_cast<unsigned long>(_Newattr))) { // failed to change attributes
         _Throw_fs_error("failed to change attributes", error_type::runtime_error, "change_attributes");
     }
 
-    return _Result;
+    // if won't throw an exception, will be able to return true
+    return true;
+}
+
+// FUNCTION change_permissions
+_NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permissions _Newperms,
+    const bool _Old, const bool _Links) {
+    if (!exists(_Target)) { // path not found
+        _Throw_fs_error("path not found", error_type::runtime_error, "change_permissions");
+    }
+
+    file_status _Status(_Target);
+    if (_Status.permissions() == _Newperms) { // old permissions are same as new, nothing to do
+        return true;
+    }
+
+    if (_Status.type() == file_type::symlink || _Status.type() == file_type::junction
+        && !_Links) { // user don't want to change permissions, to links, but _Target is one of them
+        _Throw_fs_error("target is a link", error_type::runtime_error, "change_permissions");
+    }
+
+    return false;
 }
 
 // FUNCTION creation_time
@@ -305,12 +399,12 @@ _NODISCARD size_t __cdecl file_size(const path& _Target,
         _Throw_fs_error("file not found", error_type::runtime_error, "file_size");
     }
 
-    const DWORD _Attr_or_flags = is_directory(_Target) || is_junction(_Target) ?
-        static_cast<DWORD>(_Flags) : static_cast<DWORD>(_Attributes);
+    const auto _Attr_or_flags = is_directory(_Target) || is_junction(_Target) ?
+        static_cast<unsigned long>(_Flags) : static_cast<unsigned long>(_Attributes);
 
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
-        static_cast<DWORD>(file_access::readonly), static_cast<DWORD>(file_share::read),
-        nullptr, static_cast<DWORD>(file_disposition::only_if_exists), _Attr_or_flags, nullptr);
+        static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
+        nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), _Attr_or_flags, nullptr);
 
     if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
         _Throw_fs_error("failed to get handle", error_type::runtime_error, "file_size");
@@ -322,8 +416,7 @@ _NODISCARD size_t __cdecl file_size(const path& _Target,
 }
 
 _NODISCARD size_t __cdecl file_size(const path& _Target) {
-    return file_size(_Target, file_attributes{ 0 },
-        file_flags::backup_semantics | file_flags::open_reparse_point);
+    return file_size(_Target, file_attributes{0}, file_flags::backup_semantics | file_flags::open_reparse_point);
 }
 
 // FUNCTION exists
@@ -338,13 +431,13 @@ _NODISCARD bool __cdecl exists(const path& _Target) noexcept {
 // FUNCTION hard_link_count
 _NODISCARD size_t __cdecl hard_link_count(const path& _Target,
     const file_attributes _Attributes, const file_flags _Flags) { // counts hard links to _Target
-    const DWORD _Attr_or_flags = is_directory(_Target) || is_junction(_Target)
+    const auto _Attr_or_flags = is_directory(_Target) || is_junction(_Target)
         || _CSTD PathIsDirectoryW(_Target.generic_wstring().c_str()) ?
-        static_cast<DWORD>(_Flags) : static_cast<DWORD>(_Attributes);
+        static_cast<unsigned long>(_Flags) : static_cast<unsigned long>(_Attributes);
     
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
-        static_cast<DWORD>(file_access::readonly), static_cast<DWORD>(file_share::read),
-        nullptr, static_cast<DWORD>(file_disposition::only_if_exists), _Attr_or_flags, nullptr);
+        static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
+        nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), _Attr_or_flags, nullptr);
 
     if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
         _Throw_fs_error("failed to get handle", error_type::runtime_error, "hard_link_count");

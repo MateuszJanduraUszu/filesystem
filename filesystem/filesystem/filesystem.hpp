@@ -762,6 +762,11 @@ struct _FILESYSTEM_API reparse_mountpoint_data_buffer { // copy of REPARSE_MOUNT
 // FUNCTION change_attributes
 _FILESYSTEM_API _NODISCARD bool __cdecl change_attributes(const path& _Target, const file_attributes _Newattr);
 
+// FUNCTION change_permissions
+_FILESYSTEM_API _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permissions _Newperms,
+    const bool _Old, const bool _Symlinks);
+_FILESYSTEM_API _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permissions _Newperms);
+
 // FUNCTION clear
 _FILESYSTEM_API _NODISCARD bool __cdecl clear(const path& _Target);
 
@@ -843,7 +848,7 @@ _FILESYSTEM_API _NODISCARD path __cdecl read_inside(const path& _Target, const s
 _FILESYSTEM_API _NODISCARD path __cdecl read_junction(const path& _Target);
 
 // FUNCTION read_symlink
-_FILESYSTEM_API _DEPRECATED(read_symlink()) _NODISCARD path __cdecl read_symlink(const path& _Target);
+_FILESYSTEM_API _NODISCARD path __cdecl read_symlink(const path& _Target);
 
 // FUNCTION remove
 _FILESYSTEM_API _NODISCARD bool __cdecl remove(const path& _Path);

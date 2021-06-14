@@ -25,7 +25,7 @@ _NODISCARD bool __cdecl clear(const path& _Target) { // if directory, removes ev
             const auto _All = directory_data(_Target).total();
 
             for (const auto& _Elem : _All) { // remove one by one if _Target is directory
-                remove(_Target + R"(\)" + _Elem); // requires full path
+                (void) remove(_Target + R"(\)" + _Elem); // requires full path
             }
 
             if (!is_empty(_Target)) { // failed to clear the directory
@@ -150,21 +150,27 @@ _NODISCARD path __cdecl read_junction(const path& _Target) {
     }
 
     const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
-        static_cast<DWORD>(file_access::readonly | file_access::writeonly), 0, nullptr,
-        static_cast<DWORD>(file_disposition::only_if_exists), static_cast<DWORD>(
+        static_cast<unsigned long>(file_access::readonly | file_access::writeonly), 0, nullptr,
+        static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
     if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
         _Throw_fs_error("failed to get handle", error_type::runtime_error, "read_junction");
     }
 
-    // in some cases buffer size may be larger than expeceted (16 * 1024)
+    // In some cases read_junction() may using more bytes than defaule maximum (16384 bytes).
+    // To avoid C6262 warning and potential threat, buffor size is set to 16284 bytes.
+    // It shouldn't change result and it's safer. If your /analyse:stacksize is set to larger value,
+    // you can change buffer size.
     unsigned char _Buff[MAXIMUM_REPARSE_DATA_BUFFER_SIZE - 100]; 
     reparse_data_buffer& _Reparse_buff = reinterpret_cast<reparse_data_buffer&>(_Buff);
-    unsigned long _Returned; // returned bytes
+    unsigned long _Bytes; // returned bytes from DeviceIoControl()
 
-    _CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
-        &_Reparse_buff, sizeof(_Buff), &_Returned, nullptr);
+    if (!_CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+        &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to read junction
+        _Throw_fs_error("failed to read junction", error_type::runtime_error, "read_junction");
+    }
+
     _CSTD CloseHandle(_Handle);
 
     // check if result contains unnecessary content (prefix and sufix)
@@ -182,8 +188,62 @@ _NODISCARD path __cdecl read_junction(const path& _Target) {
 }
 
 // FUNCTION read_symlink
-_NODISCARD path __cdecl read_symlink(const path& _Target) {
-    return path();
+_NODISCARD path __cdecl read_symlink(const path& _Target) { // returns full path to target of symbolic link
+    if (!is_symlink(_Target)) { // _Target must be a symbolic link
+        _Throw_fs_error("symbolic link not found", error_type::runtime_error, "read_symlink");
+    }
+
+    const auto _Flags = _CSTD PathIsDirectoryW(_Target.generic_wstring().c_str()) ?
+        file_flags::backup_semantics | file_flags::open_reparse_point : file_flags::open_reparse_point;
+
+    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
+        static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read), nullptr,
+        static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(_Flags), nullptr);
+
+    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
+        _Throw_fs_error("failed to get handle", error_type::runtime_error, "read_symlink");
+    }
+
+    // In some cases read_symlink() may using more bytes than defaule maximum (16384 bytes).
+    // To avoid C6262 warning and potential threat, buffor size is set to 15734 bytes.
+    // It shouldn't change result and it's safer. If your /analyse:stacksize is set to larger value,
+    // you can change buffer size.
+    unsigned char _Buff[MAXIMUM_REPARSE_DATA_BUFFER_SIZE - 650];
+    reparse_data_buffer& _Reparse_buff = reinterpret_cast<reparse_data_buffer&>(_Buff);
+    unsigned long _Bytes; // returnd bytes from DeviceIoControl()
+
+    if (!_CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+        &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to read symlink
+        _Throw_fs_error("failed to read sybmolic link", error_type::runtime_error, "read_symlink");
+    }
+
+    _CSTD CloseHandle(_Handle);
+
+    const size_t _Len  = _Reparse_buff._Symbolic_link_reparse_buffer._Substitute_name_length / sizeof(wchar_t) + 1;
+    wchar_t* _Sub_name = new wchar_t[_Len + 1];
+
+    _CSTD wcsncpy_s(_Sub_name, _Len + 1, &_Reparse_buff._Symbolic_link_reparse_buffer._Path_buffer[
+        _Reparse_buff._Symbolic_link_reparse_buffer._Substitute_name_offset / sizeof(wchar_t) + 1], _Len);
+    _Sub_name[_Len] = L'\0'; // C string must ends with "\0"
+
+    // first char is copy of last and must be skiped, because with him result will be incorrect
+    wstring _Reparse(_Sub_name, 1, _CSTD wcslen(_Sub_name) - 1);
+    delete[] _Sub_name; // free memory from _Sum_name, won't be used any more
+
+    // in some cases, first 4 characters may be a prefix, they're unnecessary
+    if (wstring(_Reparse, 0, 4) == LR"(\??\)") { // remove prefix
+        _Reparse.erase(0, 4);
+    }
+
+    // In this place, _Reparse may be a full path. If is, don't do anything more.
+    if (exists(_Reparse)) {
+        return path(_Reparse);
+    }
+
+    // if not exists, find full path to him
+    wchar_t _Path_buff[MAX_PATH];
+    _CSTD GetFullPathNameW(_Reparse.c_str(), MAX_PATH, _Path_buff, nullptr);
+    return path(static_cast<const wchar_t*>(_Path_buff));
 }
 
 // FUNCTION resize_file
@@ -193,26 +253,26 @@ _NODISCARD bool __cdecl resize_file(const path& _Target, const size_t _Newsize) 
     }
 
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
-        static_cast<DWORD>(file_access::writeonly), static_cast<DWORD>(file_share::read
-            | file_share::write | file_share::remove), nullptr, static_cast<DWORD>(file_disposition::only_if_exists),
-        static_cast<DWORD>(file_attributes::none), nullptr);
+        static_cast<unsigned long>(file_access::writeonly), static_cast<unsigned long>(file_share::read
+            | file_share::write | file_share::remove), nullptr, static_cast<unsigned long>(file_disposition::only_if_exists),
+        static_cast<unsigned long>(file_attributes::none), nullptr);
 
     if (_Handle == INVALID_HANDLE_VALUE) { // failed to open handle
         _Throw_fs_error("failed to get handle", error_type::runtime_error, "resize_file");
     }
 
     LARGE_INTEGER _Large;
-    _Large.QuadPart = static_cast<LONGLONG>(_Newsize);
+    _Large.QuadPart = static_cast<long long>(_Newsize);
 
-    const bool _Result = _CSTD SetFilePointerEx(_Handle, _Large, nullptr, FILE_BEGIN)
-        && _CSTD SetEndOfFile(_Handle);
-
-    if (!_Result) { // failed to resize file
+    if (!_CSTD SetFilePointerEx(_Handle, _Large, nullptr, FILE_BEGIN)
+        || !_CSTD SetEndOfFile(_Handle)) { // failed to resize file
         _Throw_fs_error("failed to resize file", error_type::runtime_error, "resize_file");
     }
 
     _CSTD CloseHandle(_Handle);
-    return _Result;
+
+    // if won't throw an exception, will be able to return true
+    return true;
 }
 
 // FUNCTION write_back
@@ -289,7 +349,7 @@ _NODISCARD bool __cdecl write_front(const path& _Target, const path& _Writable) 
 
     _File.close();
 
-    if (read_front(_Target) != _Writable) { // failed to overrite file
+    if (read_front(_Target) != _Writable) { // failed to overwrite file
         _Throw_fs_error("failed to overwrite file", error_type::runtime_error, "write_front");
     }
 
@@ -322,8 +382,8 @@ _NODISCARD bool __cdecl write_inside(const path& _Target, const path& _Writable,
         return write_front(_Target, _Writable);
     }
 
-    vector<path> _Write                      = _All;
-    const vector<path>::const_iterator _Iter = _Write.begin();
+    auto _Write      = _All;
+    const auto _Iter = _Write.begin();
 
     _Write.insert(_Iter + (_Line - 1), _Writable);
 
@@ -334,7 +394,7 @@ _NODISCARD bool __cdecl write_inside(const path& _Target, const path& _Writable,
     _File.close();
 
     for (const auto& _Elem : _Write) {
-        write_back(_Target, _Elem);
+        (void) write_back(_Target, _Elem);
     }
 
     if (read_inside(_Target, _Line) != _Writable) { // failed to overwrite file
@@ -367,7 +427,7 @@ _NODISCARD bool __cdecl write_instead(const path& _Target, const path& _Writable
     _File.close();
 
     for (const auto& _Elem : _All) {
-        write_back(_Target, _Elem);
+        (void) write_back(_Target, _Elem);
     }
 
     if (read_inside(_Target, _Line) != _Writable) { // failed to replace line
