@@ -358,9 +358,11 @@ _NODISCARD bool __cdecl change_attributes(const path& _Target, const file_attrib
     return true;
 }
 
+#pragma warning(push)
+#pragma warning(disable : 4834) // C4834: discard function with [nodiscard] attribute (operator^=())
 // FUNCTION change_permissions
 _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permissions _Newperms,
-    const bool _Old, const bool _Links) {
+    const bool _Inc_old, const bool _Links) { // _Inc_old = include old attributes, _Links = follow links (symlinks and junctions)
     if (!exists(_Target)) { // path not found
         _Throw_fs_error("path not found", error_type::runtime_error, "change_permissions");
     }
@@ -371,11 +373,28 @@ _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permi
     }
 
     if (_Status.type() == file_type::symlink || _Status.type() == file_type::junction
-        && !_Links) { // user don't want to change permissions, to links, but _Target is one of them
+        && !_Links) { // user don't want to change permissions to links, but _Target is one of them
         _Throw_fs_error("target is a link", error_type::runtime_error, "change_permissions");
     }
 
-    return false;
+    const file_attributes& _Attr = _Newperms == file_permissions::readonly ? file_attributes::readonly : file_attributes::none;
+    if (_Inc_old) { // in this cast, user adds new attributes to existing
+        const_cast<file_attributes&>(_Attr) ^= _Status.attribute();
+    }
+
+    // if _Inc_old is true, add new attribute to existing
+    if (!_CSTD SetFileAttributesW(_Target.generic_wstring().c_str(),
+        static_cast<unsigned long>(_Attr))) { // failed to set new permissions
+        _Throw_fs_error("failed to set new permissions", error_type::runtime_error, "change_permissions");
+    }
+
+    // if won't throw an exception, will be able to return true
+    return true;
+}
+#pragma warning(pop)
+
+_NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permissions _Newperms) {
+    return change_permissions(_Target, _Newperms, true, true);
 }
 
 // FUNCTION creation_time

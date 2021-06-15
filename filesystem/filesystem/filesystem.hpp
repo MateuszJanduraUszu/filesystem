@@ -89,16 +89,26 @@
 
 // operators
 #ifndef _BITOPS
-#define _BITOPS(_Bitsrc)                                                                                \
-_NODISCARD constexpr _Bitsrc __cdecl operator&(const _Bitsrc _Left, const _Bitsrc _Right) noexcept {    \
-    using _IntT = _STD underlying_type_t<_Bitsrc>;                                                      \
-    return static_cast<_Bitsrc>(static_cast<_IntT>(_Left) & static_cast<_IntT>(_Right));                \
-}                                                                                                       \
-                                                                                                        \
-_NODISCARD constexpr _Bitsrc __cdecl operator|(const _Bitsrc _Left, const _Bitsrc _Right) noexcept {    \
-    using _IntT = _STD underlying_type_t<_Bitsrc>;                                                      \
-    return static_cast<_Bitsrc>(static_cast<_IntT>(_Left) | static_cast<_IntT>(_Right));                \
-} 
+#define _BITOPS(_Bitsrc)                                                                             \
+_NODISCARD constexpr _Bitsrc __cdecl operator&(const _Bitsrc _Left, const _Bitsrc _Right) noexcept { \
+    using _IntT = _STD underlying_type_t<_Bitsrc>;                                                   \
+    return static_cast<_Bitsrc>(static_cast<_IntT>(_Left) & static_cast<_IntT>(_Right));             \
+}                                                                                                    \
+                                                                                                     \
+_NODISCARD constexpr _Bitsrc __cdecl operator|(const _Bitsrc _Left, const _Bitsrc _Right) noexcept { \
+    using _IntT = _STD underlying_type_t<_Bitsrc>;                                                   \
+    return static_cast<_Bitsrc>(static_cast<_IntT>(_Left) | static_cast<_IntT>(_Right));             \
+}                                                                                                    \
+                                                                                                     \
+_NODISCARD constexpr _Bitsrc __cdecl operator^(const _Bitsrc _Left, const _Bitsrc _Right) noexcept { \
+    using _IntT = _STD underlying_type_t<_Bitsrc>;                                                   \
+    return static_cast<_Bitsrc>(static_cast<_IntT>(_Left) ^ static_cast<_IntT>(_Right));             \
+}                                                                                                    \
+                                                                                                     \
+_NODISCARD constexpr _Bitsrc& __cdecl operator^=(_Bitsrc& _Left, const _Bitsrc _Right) noexcept {    \
+    _Left = _Left ^ _Right;                                                                          \
+    return _Left;                                                                                    \
+}
 #endif // _BITOPS
 
 #if !_HAS_WINDOWS
@@ -541,11 +551,11 @@ _BITOPS(file_flags)
 
 // ENUM CLASS file_permissions
 enum class _FILESYSTEM_API file_permissions {
-    none      = 0,
-    readonly  = 0x2, // _S_IREAD
-    writeonly = 0x4, // _S_IWRITE
-    all       = 0x6, // _S_IREAD | _S_IWRITE, in fact, the same as writeonly
-    unknown   = 0xF
+    none,
+    readonly,
+    writeonly,
+    all,
+    unknown
 };
 
 // ENUM CLASS file_reparse_tag
@@ -764,11 +774,44 @@ _FILESYSTEM_API _NODISCARD bool __cdecl change_attributes(const path& _Target, c
 
 // FUNCTION change_permissions
 _FILESYSTEM_API _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permissions _Newperms,
-    const bool _Old, const bool _Symlinks);
+    const bool _Inc_old, const bool _Symlinks);
 _FILESYSTEM_API _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permissions _Newperms);
 
 // FUNCTION clear
 _FILESYSTEM_API _NODISCARD bool __cdecl clear(const path& _Target);
+
+// ENUM CLASS copy_options
+enum class _FILESYSTEM_API copy_options {
+    none,
+
+    overwrite, // replaces content of target with source
+    replace, // removes existing and copies source to target path
+
+    copy_symlink, // copies symbolic link to target path (by default creates new file/directory)
+    copy_junction, // copies junction to target path (by default creates new directory)
+
+    create_hard_link, // creates hard link in target path to source
+    create_junction, // creates junction in target path to source
+    create_symlink, // creates symbolic link in target to source
+
+    cannot_exists, // error if already exists
+    cannot_be_link // error if is a symbolic link or junction
+};
+
+_BITOPS(copy_options)
+
+// FUNCTION copy
+_FILESYSTEM_API _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_options _Options);
+_FILESYSTEM_API _NODISCARD bool __cdecl copy(const path& _From, const path& _To);
+
+// FUNCTION copy_file
+_FILESYSTEM_API _NODISCARD bool __cdecl copy_file(const path& _From, const path& _To, const bool _Replace);
+
+// FUNCTION copy_junction
+_FILESYSTEM_API _NODISCARD bool __cdecl copy_junction(const path& _Junction, const path& _Newjunction);
+
+// FUNCTION copy_symlink
+_FILESYSTEM_API _NODISCARD bool __cdecl copy_symlink(const path& _Symlink, const path& _Newsymlink);
 
 // FUNCTION creation_data
 _FILESYSTEM_API _NODISCARD file_time __cdecl creation_time(const path& _Target);

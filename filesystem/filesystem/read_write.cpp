@@ -235,21 +235,17 @@ _NODISCARD path __cdecl read_symlink(const path& _Target) { // returns full path
         _Reparse.erase(0, 4);
     }
 
-    // In this place, _Reparse may be a full path. If is, don't do anything more.
-    if (exists(_Reparse)) {
-        return path(_Reparse);
-    }
-
-    // if not exists, find full path to him
-    wchar_t _Path_buff[MAX_PATH];
-    _CSTD GetFullPathNameW(_Reparse.c_str(), MAX_PATH, _Path_buff, nullptr);
-    return path(static_cast<const wchar_t*>(_Path_buff));
+    return path(_Reparse);
 }
 
 // FUNCTION resize_file
 _NODISCARD bool __cdecl resize_file(const path& _Target, const size_t _Newsize) {
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "resize_file");
+    }
+
+    if (_CSTD PathIsDirectoryW(_Target.generic_wstring().c_str())) { // _Target cannot be a directory
+        _Throw_fs_error("expected file", error_type::runtime_error, "resize_file");
     }
 
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
