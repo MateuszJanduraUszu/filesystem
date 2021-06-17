@@ -12,6 +12,310 @@
 
 _FILESYSTEM_BEGIN
 _EXPERIMENTAL_BEGIN
+// FUNCTION copy
+_NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_options _Options) {
+    if (!exists(_From)) { // path not found
+        _Throw_fs_error("path not found", error_type::runtime_error, "copy");
+    }
+
+    // error cases should be checked as first
+    if (is_other(_From) || is_other(_To)) { // not supported operation
+        _Throw_fs_error("operation not supported", error_type::invalid_argument, "copy");
+    }
+
+    // _From and _To must be the same type (directory/not directory)
+    if (is_directory(_From) && is_regular_file(_To)) { // cannot copy directory to file
+        _Throw_fs_error("invalid operation", error_type::invalid_argument, "copy");
+    }
+
+    if ((_Options & copy_options::cannot_exists) == copy_options::cannot_exists && exists(_To)) { // _To shouldn't exists, but exists
+        _Throw_fs_error("already exists", error_type::runtime_error, "copy");
+    }
+
+    if ((_Options & copy_options::cannot_be_link) == copy_options::cannot_be_link
+        && (is_junction(_From) || is_symlink(_From))) { // _From shouldn't be a link, but it is
+        _Throw_fs_error("source is a link", error_type::runtime_error, "copy");
+    }
+
+    if (_Options == copy_options::none) { // try to do it with default CopyFileW() or SHFileOperationW()
+        if (!_CSTD CopyFileW(_From.generic_wstring().c_str(), _To.generic_wstring().c_str(), true)) { // failed to copy target
+            if (_CSTD GetLastError() == ERROR_ACCESS_DENIED) { // _From is directory
+                const auto& _Src  = _From.generic_wstring();
+                const auto& _Dest = _To.generic_wstring();
+
+                // Last character from source must be 0. Without it SHFileOperationW() will create empty directory in target path
+                const_cast<wstring&>(_Src).push_back(L'\0');
+
+                SHFILEOPSTRUCTW _Ops;
+                _Ops.fFlags = FOF_NOCONFIRMATION | FOF_NOCONFIRMMKDIR | FOF_NOERRORUI | FOF_SILENT;
+                _Ops.hwnd   = nullptr; // never used in this case
+                _Ops.pFrom  = _Src.c_str();
+                _Ops.pTo    = _Dest.c_str();
+                _Ops.wFunc  = FO_COPY;
+
+                if (_CSTD SHFileOperationW(&_Ops)) { // failed to copy directory replacing existing
+                    _Throw_fs_error("failed to copy directory", error_type::runtime_error, "copy");
+                }                
+            } else { // unknown error
+                _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
+            }
+        }
+
+        // if won't throw an exception, will be able to return true;
+        return true;
+    }
+
+    // check for copying links
+    if ((_Options & copy_options::copy_junction) == copy_options::copy_junction && is_junction(_From)) { // copy _From junction to _To
+        // if contains copy_options::replace flag, remove _To, if exists and copy expected
+        if ((_Options & copy_options::replace) == copy_options::replace) {
+            (void) remove_all(_To);
+        }
+        
+        return copy_junction(_From, _To);
+    }
+
+    if ((_Options & copy_options::copy_symlink) == copy_options::copy_symlink && is_symlink(_From)) { // copy _From symbolic link to _To
+        // if contains copy_options::replace flag, remove _To, if exists and copy expected, check type
+        if (_CSTD PathIsDirectoryW(_From.generic_wstring().c_str())) {
+            if ((_Options & copy_options::replace) == copy_options::replace && exists(_To)) {
+                (void) remove_all(_To);
+            }
+        } else { // regular file
+            if ((_Options & copy_options::overwrite) == copy_options::overwrite && exists(_To)
+                && (_Options & copy_options::replace) != copy_options::replace) { // clear symlink and overwrite
+                (void) clear(_To);
+
+                for (const auto& _Elem : read_all(_From)) {
+                    (void) write_back(_To, _Elem);
+                }
+
+                if (read_all(_From) != read_all(_To)) { // failed to copy file
+                    _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
+                }
+                
+                // if won't throw an exception, will be able to return true
+                return true;
+            }
+
+            if ((_Options & copy_options::replace) == copy_options::replace && exists(_To)) { // remove existing
+                (void) remove(_To);
+            }
+        }
+        
+        return copy_symlink(_From, _To);
+    }
+
+    // check for defined types
+    if (is_directory(_From)) { // directory cases
+        if ((_Options & copy_options::create_junction) == copy_options::create_junction
+            && (_Options & copy_options::create_symlink) != copy_options::create_symlink) {
+            // if contains copy_options::replace flag, remove _To if exists and replace with expected
+            if ((_Options & copy_options::replace) == copy_options::replace && exists(_To)) {
+                (void) remove_all(_To);
+            }
+
+            return create_junction(_From, _To);
+        }
+
+        if ((_Options & copy_options::create_symlink) == copy_options::create_symlink) {
+            // if contains copy_options::replace flag, remove _To if exists and replace with expected
+            if ((_Options & copy_options::replace) == copy_options::replace && exists(_To)) {
+                (void) remove_all(_To);
+            }
+
+            return create_symlink(_From, _To);
+        }
+
+        if ((_Options & copy_options::replace) == copy_options::replace
+            && exists(_To)) { // remove existing and copy from source to target
+            (void) remove_all(_To); // remove _To as well
+            
+            const auto& _Src  = _From.generic_wstring();
+            const auto& _Dest = _To.generic_wstring();
+
+            // Last char from source must be 0. Without it SHFileOperationW() will create empty directory in target path.
+            const_cast<wstring&>(_Src).push_back(L'\0');
+            
+            SHFILEOPSTRUCTW _Ops;
+            _Ops.fFlags = FOF_NOCONFIRMATION | FOF_NOCONFIRMMKDIR | FOF_NOERRORUI | FOF_SILENT;
+            _Ops.hwnd   = nullptr; // never used in this case
+            _Ops.pFrom  = _Src.c_str();
+            _Ops.pTo    = _Dest.c_str();
+            _Ops.wFunc  = FO_COPY;
+
+            if (_CSTD SHFileOperationW(&_Ops)) { // failed to copy directory replacing existing
+                _Throw_fs_error("failed to copy directory", error_type::runtime_error, "copy");
+            }
+
+            // if won't throw an exception, will be able to return true
+            return true;
+        }
+
+        // there's no more supported operations
+        _Throw_fs_error("operation not supported", error_type::invalid_argument, "copy");
+    }
+
+    if (is_regular_file(_From)) { // regular file cases
+        if ((_Options & copy_options::create_hard_link) == copy_options::create_hard_link
+            && (_Options & copy_options::create_symlink) != copy_options::create_symlink) { // without second instruction, creates only hard link
+            // The copy_options::overwrite flag is difference case.
+            // We have to clear existing hard link and write to him content from _From.
+            if ((_Options & copy_options::overwrite) == copy_options::overwrite && exists(_To)
+                && (_Options & copy_options::replace) != copy_options::replace) {
+                (void) clear(_To);
+
+                for (const auto& _Elem : read_all(_To)) {
+                    (void) write_back(_To, _Elem);
+                }
+
+                if (read_all(_From) != read_all(_To)) { // failed to copy file creating hard link 
+                    _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
+                }
+
+                // if won't throw an exception, will be able to return true
+                return true;
+            }
+
+            // if contains copy_options::replace flag, remove _To, if exists and replace with excepted
+            if ((_Options & copy_options::replace) == copy_options::replace && exists(_To)) {
+                (void) remove(_To);
+            }
+
+            return create_hard_link(_From, _To);
+        }
+
+        if ((_Options & copy_options::create_symlink) == copy_options::create_symlink) {
+            // The copy_options::overwrite flag is difference case.
+            // We have to clear existing symbolic link and write to him content from _From.
+            if ((_Options & copy_options::overwrite) == copy_options::overwrite && exists(_To)
+                && (_Options & copy_options::replace) != copy_options::replace) {
+                (void) clear(_To);
+
+                for (const auto& _Elem : read_all(_To)) {
+                    (void) write_back(_To, _Elem);
+                }
+
+                if (read_all(_From) != read_all(_To)) { // failed to copy file creating hard link 
+                    _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
+                }
+
+                // if won't throw an exception, will be able to return true
+                return true;
+            }
+
+            // if contains copy_options::replace flag, remove _To, if exists and replace with excepted
+            if ((_Options & copy_options::replace) == copy_options::replace && exists(_To)) {
+                (void) remove(_To);
+            }
+
+            return create_symlink(_From, _To);
+        }
+
+        if ((_Options & copy_options::overwrite) == copy_options::overwrite && exists(_To)
+            && (_Options & copy_options::replace) != copy_options::replace) { // replace old _To content
+            (void) clear(_To);
+
+            for (const auto& _Elem : read_all(_From)) {
+                (void) write_back(_To, _Elem);
+            }
+
+            if (read_all(_To) != read_all(_From)) { // failed to copy file with replace attribute
+                _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
+            }
+
+            // if won't throw an exception, will be able to return true
+            return true;
+        }
+
+        if ((_Options & copy_options::replace) == copy_options::replace && exists(_To)) { // remove old file and copy from source path
+            if (!_CSTD CopyFileW(_From.generic_wstring().c_str(), _To.generic_wstring().c_str(), false)) { // failed to copy file
+                _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
+            }
+
+            // if won't throw an exception, will be able to return true
+            return true;
+        }
+
+        // there's no more supported operations
+        _Throw_fs_error("operation not supported", error_type::invalid_argument, "copy");
+    }
+
+    // there's no more supported operations,
+    _Throw_fs_error("operation not supported", error_type::invalid_argument, "copy");
+    
+    // if everything went correctly this block won't be executed
+    return false;
+}
+
+_NODISCARD bool __cdecl copy(const path& _From, const path& _To) {
+    return copy(_From, _To, copy_options::none);
+}
+
+// FUNCTION copy_file
+_NODISCARD bool __cdecl copy_file(const path& _From, const path& _To, const bool _Replace) { // if _Replace is true, clears file
+    if (!exists(_From)) { // file not found
+        _Throw_fs_error("file not found", error_type::runtime_error, "copy_file");
+    }
+
+    if (is_empty(_From)) { // nothing to do
+        return true;
+    }
+
+    if (!exists(_To)) { // if not found _To, create new file
+        (void) create_file(_To);
+    }
+
+    if (_Replace) { // clear _To and write to him content from _From
+        (void) clear(_To);
+
+        for (const auto _Elem : read_all(_From)) {
+            (void) write_back(_To, _Elem);
+        }
+
+        if (read_all(_From) != read_all(_To)) { // failed to copy file
+            _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy_file");
+        }
+
+        // if won't throw an exception, will be able to return true
+        return true;
+    } else { // don't touch old content
+        const auto& _Src(read_all(_From));
+        const auto& _Result(read_all(_To)); // content from _From and _To
+        
+        const_cast<vector<path>&>(_Result).insert(_Result.end(), _Src.begin(), _Src.end());
+
+        for (const auto& _Elem : read_all(_From)) {
+            (void) write_back(_To, _Elem);
+        }
+
+        if (read_all(_To) != _Result) { // failed to copy file
+            _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy_file");
+        }
+
+        // if won't throw an exception, will be able to return true
+        return true;
+    }
+}
+
+// FUNCTION copy_junction
+_NODISCARD bool __cdecl copy_junction(const path& _Junction, const path& _Newjunction) {
+    if (!is_junction(_Junction)) { // junction not found
+        _Throw_fs_error("junction not found", error_type::runtime_error, "copy_junction");
+    }
+
+    return create_junction(read_junction(_Junction), _Newjunction);
+}
+
+// FUNCTION copy_symlink
+_NODISCARD bool __cdecl copy_symlink(const path& _Symlink, const path& _Newsymlink) {
+    if (!is_symlink(_Symlink)) { // symbolic link not found
+        _Throw_fs_error("symbolic link not found", error_type::runtime_error, "copy_symlink");
+    }
+
+    return create_symlink(read_symlink(_Symlink), _Newsymlink);
+}
+
 // FUNCTION create_directory
 _NODISCARD bool __cdecl create_directory(const path& _Path) { // creates new directory
     if (!_CSTD CreateDirectoryW(_Path.generic_wstring().c_str(), nullptr)) { // failed to create directory 
@@ -59,6 +363,10 @@ _NODISCARD bool __cdecl create_hard_link(const path& _To, const path& _Hardlink)
 _NODISCARD bool __cdecl create_junction(const path& _To, const path& _Junction) {
     if (!exists(_To)) { // directory not found
         _Throw_fs_error("directory not found", error_type::runtime_error, "create_junction");
+    }
+
+    if (!is_directory(_To)) { // junction applies only to directories
+        _Throw_fs_error("source path must be a directory", error_type::runtime_error, "create_junction");
     }
 
     // at the beginning _Junction must be created as default directory 
@@ -133,7 +441,8 @@ _NODISCARD bool __cdecl remove(const path& _Path) { // removes files and directo
 
 // FUNCTION remove_all
 _NODISCARD bool __cdecl remove_all(const path& _Path) {
-    if (!is_directory(_Path) && !is_junction(_Path) && !PathIsDirectoryW(_Path.generic_wstring().c_str())) { // directory not found
+    if (!is_directory(_Path) && !is_junction(_Path)
+        && !_CSTD PathIsDirectoryW(_Path.generic_wstring().c_str())) { // directory not found
         _Throw_fs_error("directory not found", error_type::runtime_error, "remove_all");
     }
 
@@ -141,14 +450,23 @@ _NODISCARD bool __cdecl remove_all(const path& _Path) {
         return remove(_Path);
     }
 
-    const auto _All = directory_data(_Path).total(); // total count of files, directories and others in _Path
+    const auto& _Src = _Path.generic_wstring();
 
-    for (const auto& _Elem : _All) { // remove one by one
-        (void) remove(_Path + R"(\)" + _Elem); // requires full path
+    // without 0 on last position, SHFileOperationW won't work correctly
+    const_cast<wstring&>(_Src).push_back(L'\0');
+
+    SHFILEOPSTRUCTW _Ops;
+    _Ops.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT;
+    _Ops.hwnd   = nullptr; // never used in this case
+    _Ops.pFrom  = _Src.c_str();
+    _Ops.wFunc  = FO_DELETE;
+
+    if (_CSTD SHFileOperationW(&_Ops) != 0) { // failed to remove directory
+        _Throw_fs_error("failed to remove directory", error_type::runtime_error, "remove_all");
     }
 
-    // remove this directory as well and don't check remove result, because remove() will check it
-    return remove(_Path);
+    // SHFileOperationW() removes base directory as well, so there's nothing to do more
+    return true;
 }
 
 // FUNCTION remove_junction
