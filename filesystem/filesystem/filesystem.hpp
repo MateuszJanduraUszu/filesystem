@@ -124,6 +124,8 @@ _NODISCARD constexpr _Bitsrc& __cdecl operator^=(_Bitsrc& _Left, const _Bitsrc _
 #include <fstream>
 #include <iostream>
 #include <locale>
+#include <shellapi.h>
+#pragma comment(lib, "Shell32.lib")
 #include <Shlwapi.h>
 #pragma comment(lib, "Shlwapi.lib")
 #include <stdexcept>
@@ -516,7 +518,7 @@ enum class _FILESYSTEM_API file_access : unsigned long {
 _BITOPS(file_access)
 
 // ENUM CLASS file_attributes
-enum class _FILESYSTEM_API file_attributes {
+enum class _FILESYSTEM_API file_attributes : unsigned long {
     none          = 0, 
     readonly      = 0x0001, // FILE_ATTRIBUTE_READONLY
     hidden        = 0x0002, // FILE_ATTRIBUTE_HIDDEN
@@ -527,7 +529,7 @@ enum class _FILESYSTEM_API file_attributes {
     reparse_point = 0x0400, // FILE_ATTRIBUTE_REPARSE_POINT, symbolic link or mount point
     compressed    = 0x0800, // FILE_ATTRIBUTE_COMPRESSED
     encrypted     = 0x4000, // FILE_ATTRIBUTE_ENCRYPTED
-    unknown       = 0xFFFF
+    unknown       = (unsigned long) - 1 // INVALID_FILE_ATTRIBUTES, target not found
 };
 
 _BITOPS(file_attributes)
@@ -565,7 +567,7 @@ enum class _FILESYSTEM_API file_reparse_tag : unsigned long {
 };
 
 // STRUCT file_time
-struct _FILESYSTEM_API file_time {
+struct _FILESYSTEM_API file_time final {
     // calendar
     int _Year;
     int _Month;
@@ -599,6 +601,9 @@ enum class _FILESYSTEM_API file_share : unsigned int {
 };
 
 _BITOPS(file_share)
+
+// experimental file_status::_Refresh()
+#define _FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH 1
 
 // CLASS status
 class _FILESYSTEM_API file_status {
@@ -639,7 +644,9 @@ private:
     void __cdecl _Update_type(const file_type _Newtype) noexcept;
 
 private:
+#if !_FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH
     struct stat _Stats; // file or directory stats
+#endif // !_FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH
     path _Path; // current working path
     file_attributes _Attribute; // current working path attribute
     file_permissions _Perms; // current working path right access
@@ -730,7 +737,7 @@ private:
 };
 
 // STRUCT reparse_data_buffer
-struct _FILESYSTEM_API reparse_data_buffer { // copy of REPARSE_DATA_BUFFER
+struct _FILESYSTEM_API reparse_data_buffer final { // copy of REPARSE_DATA_BUFFER
     unsigned long _Reparse_tag; // dwReparseTag
     uint16_t _Reparse_data_length; // wReparseDataLength
     uint16_t _Reserved; // wReserved
@@ -759,7 +766,7 @@ struct _FILESYSTEM_API reparse_data_buffer { // copy of REPARSE_DATA_BUFFER
 };
 
 // STRUCT reparse_mountpoint_data_buffer
-struct _FILESYSTEM_API reparse_mountpoint_data_buffer { // copy of REPARSE_MOUNTPOINT_DATA_BUFFER
+struct _FILESYSTEM_API reparse_mountpoint_data_buffer final { // copy of REPARSE_MOUNTPOINT_DATA_BUFFER
     unsigned long _Reparse_tag; // dwReparseTag
     unsigned long _Reparse_data_length; // dwReparseDataLength
     uint16_t _Reserved; // wReserved
@@ -831,6 +838,9 @@ _FILESYSTEM_API _NODISCARD bool __cdecl create_junction(const path& _To, const p
 // FUNCTION create_symlink
 _FILESYSTEM_API _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags);
 _FILESYSTEM_API _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink);
+
+// FUNCTION equivalent
+_FILESYSTEM_API _DEPRECATED(equivalent()) _NODISCARD bool __cdecl equivalent(const path& _Left, const path& _Right);
 
 // FUNCTION file_size
 _FILESYSTEM_API _NODISCARD size_t __cdecl file_size(const path& _Target,

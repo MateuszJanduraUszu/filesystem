@@ -22,7 +22,7 @@ _NODISCARD bool __cdecl clear(const path& _Target) { // if directory, removes ev
         if (is_directory(_Target) || is_junction(_Target)
             || _CSTD PathIsDirectoryW(_Target.generic_wstring().c_str())) {
             // don't use remove_all(), because it will remove _Target as well
-            const auto _All = directory_data(_Target).total();
+            const auto& _All = directory_data(_Target).total();
 
             for (const auto& _Elem : _All) { // remove one by one if _Target is directory
                 (void) remove(_Target + R"(\)" + _Elem); // requires full path
@@ -224,7 +224,7 @@ _NODISCARD path __cdecl read_symlink(const path& _Target) { // returns full path
 
     _CSTD wcsncpy_s(_Sub_name, _Len + 1, &_Reparse_buff._Symbolic_link_reparse_buffer._Path_buffer[
         _Reparse_buff._Symbolic_link_reparse_buffer._Substitute_name_offset / sizeof(wchar_t) + 1], _Len);
-    _Sub_name[_Len] = L'\0'; // C string must ends with "\0"
+    _Sub_name[_Len] = L'\0'; // C string must ends with 0
 
     // first char is copy of last and must be skiped, because with him result will be incorrect
     wstring _Reparse(_Sub_name, 1, _CSTD wcslen(_Sub_name) - 1);
