@@ -8,6 +8,9 @@
     <Filter Include="bin">
       <UniqueIdentifier>{845a23ed-9d8b-4c65-a519-f774c85e98e6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="git">
+      <UniqueIdentifier>{d56c0a8b-492f-418c-aad3-cb13dabe0d67}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -55,6 +58,15 @@
     </None>
     <None Include="..\bin\filesystem.pdb">
       <Filter>bin</Filter>
+    </None>
+    <None Include="..\..\.gitattributes">
+      <Filter>git</Filter>
+    </None>
+    <None Include="..\..\.gitignore">
+      <Filter>git</Filter>
+    </None>
+    <None Include="..\..\README.md">
+      <Filter>git</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

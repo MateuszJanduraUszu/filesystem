@@ -191,6 +191,9 @@
     <ClCompile Include="status.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\.gitattributes" />
+    <None Include="..\..\.gitignore" />
+    <None Include="..\..\README.md" />
     <None Include="..\bin\filesystem.dll" />
     <None Include="..\bin\filesystem.exp" />
     <None Include="..\bin\filesystem.pdb" />

@@ -1,1 +1,1 @@
-# README.md will be updated when version 1.0 is released.
+# README.md will be updated with version 1.0.
