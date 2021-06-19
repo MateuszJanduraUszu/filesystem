@@ -430,7 +430,8 @@ _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink) {
 
 // FUNCTION remove
 _NODISCARD bool __cdecl remove(const path& _Path) { // removes files and directories
-    if (is_directory(_Path) ? !_CSTD RemoveDirectoryW(_Path.generic_wstring().c_str())
+    if (is_directory(_Path) || is_junction(_Path) || _CSTD PathIsDirectoryW(_Path.generic_wstring().c_str()) ?
+        !_CSTD RemoveDirectoryW(_Path.generic_wstring().c_str())
         : !_CSTD DeleteFileW(_Path.generic_wstring().c_str())) { // failed to remove target
         _Throw_fs_error("failed to remove target", error_type::runtime_error, "remove");
     }
@@ -440,7 +441,7 @@ _NODISCARD bool __cdecl remove(const path& _Path) { // removes files and directo
 }
 
 // FUNCTION remove_all
-_NODISCARD bool __cdecl remove_all(const path& _Path) {
+_NODISCARD bool __cdecl remove_all(const path& _Path) { // removes directory with all content
     if (!is_directory(_Path) && !is_junction(_Path)
         && !_CSTD PathIsDirectoryW(_Path.generic_wstring().c_str())) { // directory not found
         _Throw_fs_error("directory not found", error_type::runtime_error, "remove_all");
@@ -452,7 +453,7 @@ _NODISCARD bool __cdecl remove_all(const path& _Path) {
 
     const auto& _Src = _Path.generic_wstring();
 
-    // without 0 on last position, SHFileOperationW won't work correctly
+    // without 0 on last position, SHFileOperationW() won't work correctly
     const_cast<wstring&>(_Src).push_back(L'\0');
 
     SHFILEOPSTRUCTW _Ops;
@@ -461,7 +462,7 @@ _NODISCARD bool __cdecl remove_all(const path& _Path) {
     _Ops.pFrom  = _Src.c_str();
     _Ops.wFunc  = FO_DELETE;
 
-    if (_CSTD SHFileOperationW(&_Ops) != 0) { // failed to remove directory
+    if (_CSTD SHFileOperationW(&_Ops)) { // failed to remove directory
         _Throw_fs_error("failed to remove directory", error_type::runtime_error, "remove_all");
     }
 
@@ -486,14 +487,14 @@ _NODISCARD bool __cdecl remove_junction(const path& _Target) {
 
     unsigned char _Buff[8 /* REPARSE_MOUNTPOINT_HEADER_SIZE */];
     reparse_mountpoint_data_buffer& _Reparse_buff = reinterpret_cast<reparse_mountpoint_data_buffer&>(_Buff);
-    unsigned long _Returned; // returned bytes from DeviceIoControl()
+    unsigned long _Bytes; // returned bytes from DeviceIoControl()
 
     // set new information to _Target
     _CSTD memset(_Buff, 0, sizeof(_Buff));
     _Reparse_buff._Reparse_tag = static_cast<unsigned long>(file_reparse_tag::mount_point);
 
     if (!_CSTD DeviceIoControl(_Handle, FSCTL_DELETE_REPARSE_POINT, &_Reparse_buff, 8 /* REPARSE_MOUNTPOINT_HEADER_SIZE */,
-        nullptr, 0, &_Returned, nullptr) || is_junction(_Target)) { // failed to remove junction
+        nullptr, 0, &_Bytes, nullptr) || is_junction(_Target)) { // failed to remove junction
         _Throw_fs_error("failed to remove junction", error_type::runtime_error, "remove_junction");
     }
 
@@ -517,11 +518,9 @@ _NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line) { /
         _Throw_fs_error("invalid line", error_type::invalid_argument, "remove_line");
     }
 
-    // clear _Target and write to him the newest content
-    ofstream _File;
-    _File.open(_Target.generic_string());
-    _File.clear();
-    _File.close();
+    // Clear _Target and write to him the newest content.
+    // Use resize_file() instead of clear(), because we know that _Target is file.
+    resize_file(_Target, 0);
 
     for (size_t _Idx = 0; _Idx < _Count; ++_Idx) {
         if (_Idx + 1 != _Line) { // skip removed line

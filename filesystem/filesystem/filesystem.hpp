@@ -826,7 +826,7 @@ struct _FILESYSTEM_API file_time final {
 #define _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT 1
 
 // FUNCTION creation_data
-_FILESYSTEM_API _DEPRECATED(creation_time()) _NODISCARD file_time __cdecl creation_time(const path& _Target);
+_FILESYSTEM_API _NODISCARD file_time __cdecl creation_time(const path& _Target);
 
 // FUNCTION create_directory
 _FILESYSTEM_API _NODISCARD bool __cdecl create_directory(const path& _Path);
@@ -854,8 +854,6 @@ struct _FILESYSTEM_API file_id final { // copy of _FILE_ID_INFO
 _FILESYSTEM_API _NODISCARD bool __cdecl equivalent(const path& _Left, const path& _Right);
 
 // FUNCTION file_size
-_FILESYSTEM_API _NODISCARD size_t __cdecl file_size(const path& _Target,
-    const file_attributes _Attributes, const file_flags _Flags);
 _FILESYSTEM_API _NODISCARD size_t __cdecl file_size(const path& _Target);
 
 // FUNCTION exists
@@ -889,6 +887,9 @@ _FILESYSTEM_API _NODISCARD bool __cdecl is_regular_file(const path& _Target) noe
 // FUNCTION is_symlink
 _FILESYSTEM_API _NODISCARD bool __cdecl is_symlink(const file_status _Status) noexcept;
 _FILESYSTEM_API _NODISCARD bool __cdecl is_symlink(const path& _Target) noexcept;
+
+// FUNCTION last_access_time
+_FILESYSTEM_API _NODISCARD file_time __cdecl last_access_time(const path& _Target);
 
 // FUNCTION last_write_time
 _FILESYSTEM_API _NODISCARD file_time __cdecl last_write_time(const path& _Target);
