@@ -193,6 +193,7 @@
   <ItemGroup>
     <None Include="..\..\.gitattributes" />
     <None Include="..\..\.gitignore" />
+    <None Include="..\..\GOALS.md" />
     <None Include="..\..\README.md" />
     <None Include="..\bin\filesystem.dll" />
     <None Include="..\bin\filesystem.exp" />

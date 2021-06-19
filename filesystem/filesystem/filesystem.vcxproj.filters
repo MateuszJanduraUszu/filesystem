@@ -68,6 +68,9 @@
     <None Include="..\..\README.md">
       <Filter>git</Filter>
     </None>
+    <None Include="..\..\GOALS.md">
+      <Filter>git</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Library Include="..\bin\filesystem.lib">
