@@ -454,7 +454,7 @@ _NODISCARD path __thiscall path::drive() const noexcept {
         return string_type(1, this->_Text[0]); // first character is drive
     }
 
-    return *this;
+    return string_type();
 }
 
 // FUNCTION path::empty
@@ -468,7 +468,7 @@ _NODISCARD path __thiscall path::extension() const noexcept {
         return string_type(this->_Text, this->_Text.find_last_of(".") + 1, this->_Text.size());
     }
 
-    return *this;
+    return string_type();
 }
 
 // FUNCTION path::file
@@ -479,7 +479,7 @@ _NODISCARD path __thiscall path::file() const noexcept {
             : string_type(this->_Text);
     }
 
-    return *this;
+    return string_type();
 }
 
 // FUNCTION path::fix
@@ -653,7 +653,7 @@ _NODISCARD path __thiscall path::parent_directory() const noexcept {
             this->parent_path().generic_string().find_first_of(_Expected_slash));
     }
 
-    return *this;
+    return string_type();
 }
 
 // FUNCTION path::parent_path
@@ -671,7 +671,7 @@ _NODISCARD path __thiscall path::parent_path() const noexcept {
         }
     }
 
-    return *this;
+    return string_type();
 }
 
 // FUNCTION path::remove_extension
@@ -739,7 +739,7 @@ _NODISCARD path __thiscall path::root_directory() const noexcept {
             this->root_path().generic_string().find_first_of(_Expected_slash));
     }
 
-    return *this;
+    return string_type();
 }
 
 // FUNCTION path::root_path
@@ -750,7 +750,7 @@ _NODISCARD path __thiscall path::root_path() const noexcept {
             : string_type(this->_Text, 1, this->_Text.size());
     }
     
-    return *this;
+    return string_type();
 }
 
 // FUNCTION path::stem
@@ -768,7 +768,7 @@ _NODISCARD path __thiscall path::stem() const noexcept {
         return _Stem;
     }
 
-    return *this;
+    return string_type();
 }
 
 // FUNCTION current_path
