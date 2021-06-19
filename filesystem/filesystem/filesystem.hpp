@@ -586,7 +586,8 @@ enum class _FILESYSTEM_API file_type : unsigned int {
 enum class _FILESYSTEM_API file_share : unsigned int {
     read   = 0x1, // FILE_SHARE_READ
     write  = 0x2, // FILE_SHARE_WRITE
-    remove = 0x4 // FILE_SHARE_DELETE, is able to remove file/directory
+    remove = 0x4, // FILE_SHARE_DELETE, is able to remove file/directory
+    all    = read | write | remove
 };
 
 _BITOPS(file_share)
@@ -832,6 +833,7 @@ _FILESYSTEM_API _NODISCARD file_time __cdecl creation_time(const path& _Target);
 _FILESYSTEM_API _NODISCARD bool __cdecl create_directory(const path& _Path);
 
 // FUNCTION create_file
+_FILESYSTEM_API _NODISCARD bool __cdecl create_file(const path& _Path, const file_attributes _Attributes);
 _FILESYSTEM_API _NODISCARD bool __cdecl create_file(const path& _Path);
 
 // FUNCTION create_hard_link

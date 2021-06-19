@@ -274,8 +274,7 @@ _NODISCARD bool __cdecl write_back(const path& _Target, const path& _Writable) {
     }
 
     // without "\n" on first position, _Writable will be added to existing line (if exists)
-    const path::string_type& _Safe = is_empty(_Target) ?
-        _Writable.generic_string() : "\n" + _Writable.generic_string();
+    const auto& _Safe = is_empty(_Target) ? _Writable.generic_string() : "\n" + _Writable.generic_string();
 
     ofstream _File;	
     _File.open(_Target.generic_string(), ios::ate | ios::in | ios::out); // without ios::in, all content will be removed
@@ -374,7 +373,7 @@ _NODISCARD bool __cdecl write_inside(const path& _Target, const path& _Writable,
 
     // clear file and write the newest content,
     // use resize_file() instead of clear(), because we knows that _Target is file
-    resize_file(_Target, 0);
+    (void) resize_file(_Target, 0);
 
     for (const auto& _Elem : _Write) {
         (void) write_back(_Target, _Elem);

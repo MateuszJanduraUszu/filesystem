@@ -327,16 +327,20 @@ _NODISCARD bool __cdecl create_directory(const path& _Path) { // creates new dir
 }
 
 // FUNCTION create_file
-_NODISCARD bool __cdecl create_file(const path& _Path) { // creates new file
+_NODISCARD bool __cdecl create_file(const path& _Path, const file_attributes _Attributes) {
     if (exists(_Path)) { // already exists
         _Throw_fs_error("file already exists", error_type::runtime_error, "create_file");
     }
 
-    ofstream _File(_Path.generic_wstring());
-    
-    if (_File.is_open()) { // close file if is open
-        _File.close();
+    const HANDLE _Handle = _CSTD CreateFileW(_Path.generic_wstring().c_str(),
+        static_cast<unsigned long>(file_access::all), static_cast<unsigned long>(file_share::all),
+        nullptr, static_cast<unsigned long>(file_disposition::only_new), static_cast<unsigned long>(_Attributes), nullptr);
+
+    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
+        _Throw_fs_error("failed to get handle", error_type::runtime_error, "create_file");
     }
+
+    _CSTD CloseHandle(_Handle);
 
     if (!exists(_Path)) { // failed to create file
         _Throw_fs_error("failed to create file", error_type::runtime_error, "create_file");
@@ -344,6 +348,10 @@ _NODISCARD bool __cdecl create_file(const path& _Path) { // creates new file
 
     // if won't throw an exception, will be able to return true
     return true;
+}
+
+_NODISCARD bool __cdecl create_file(const path& _Path) { // creates new file
+    return create_file(_Path, file_attributes::normal);
 }
 
 // FUNCTION create_hard_link
