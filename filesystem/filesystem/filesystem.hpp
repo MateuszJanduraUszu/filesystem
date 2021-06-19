@@ -217,6 +217,7 @@ inline constexpr bool _Is_Src = false;
 
 template<>
 inline constexpr bool _Is_Src<path> = false; // to avoid errors in copy constructors, in path
+
 template<>
 inline constexpr bool _Is_Src<string> = true;
 template<>
@@ -234,6 +235,7 @@ inline constexpr bool _Is_SrcView = false;
 
 template<>
 inline constexpr bool _Is_SrcView<path> = false; // to avoid errors in copy constructors, in path
+
 template<>
 inline constexpr bool _Is_SrcView<string_view> = true;
 template<>
@@ -566,19 +568,6 @@ enum class _FILESYSTEM_API file_reparse_tag : unsigned long {
     symlink     = 0xA000000CL // IO_REPARSE_TAG_SYMLINK
 };
 
-// STRUCT file_time
-struct _FILESYSTEM_API file_time final {
-    // calendar
-    int _Year;
-    int _Month;
-    int _Day;
-    
-    // clock
-    int _Hour;
-    int _Minute;
-    int _Second;
-};
-
 // ENUM CLASS file_type
 enum class _FILESYSTEM_API file_type : unsigned int {
     none,
@@ -737,7 +726,7 @@ private:
 };
 
 // STRUCT reparse_data_buffer
-struct _FILESYSTEM_API reparse_data_buffer final { // copy of REPARSE_DATA_BUFFER
+struct _FILESYSTEM_API reparse_data_buffer final { // copy of _REPARSE_DATA_BUFFER
     unsigned long _Reparse_tag; // dwReparseTag
     uint16_t _Reparse_data_length; // wReparseDataLength
     uint16_t _Reserved; // wReserved
@@ -766,7 +755,7 @@ struct _FILESYSTEM_API reparse_data_buffer final { // copy of REPARSE_DATA_BUFFE
 };
 
 // STRUCT reparse_mountpoint_data_buffer
-struct _FILESYSTEM_API reparse_mountpoint_data_buffer final { // copy of REPARSE_MOUNTPOINT_DATA_BUFFER
+struct _FILESYSTEM_API reparse_mountpoint_data_buffer final { // copy of _REPARSE_MOUNTPOINT_DATA_BUFFER
     unsigned long _Reparse_tag; // dwReparseTag
     unsigned long _Reparse_data_length; // dwReparseDataLength
     uint16_t _Reserved; // wReserved
@@ -820,8 +809,24 @@ _FILESYSTEM_API _NODISCARD bool __cdecl copy_junction(const path& _Junction, con
 // FUNCTION copy_symlink
 _FILESYSTEM_API _NODISCARD bool __cdecl copy_symlink(const path& _Symlink, const path& _Newsymlink);
 
+// STRUCT file_time
+struct _FILESYSTEM_API file_time final {
+    // calendar
+    uint16_t _Year;
+    uint16_t _Month;
+    uint16_t _Day;
+
+    // clock
+    uint16_t _Hour;
+    uint16_t _Minute;
+    uint16_t _Second;
+};
+
+// experimental creation_data()
+#define _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT 1
+
 // FUNCTION creation_data
-_FILESYSTEM_API _NODISCARD file_time __cdecl creation_time(const path& _Target);
+_FILESYSTEM_API _DEPRECATED(creation_time()) _NODISCARD file_time __cdecl creation_time(const path& _Target);
 
 // FUNCTION create_directory
 _FILESYSTEM_API _NODISCARD bool __cdecl create_directory(const path& _Path);
@@ -839,8 +844,14 @@ _FILESYSTEM_API _NODISCARD bool __cdecl create_junction(const path& _To, const p
 _FILESYSTEM_API _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags);
 _FILESYSTEM_API _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink);
 
+// STRUCT file_id
+struct _FILESYSTEM_API file_id final { // copy of _FILE_ID_INFO
+    uint64_t _Volume_serial_number; // VolumeSerialNumber
+    unsigned char _Id[16]; // FileId
+};
+
 // FUNCTION equivalent
-_FILESYSTEM_API _DEPRECATED(equivalent()) _NODISCARD bool __cdecl equivalent(const path& _Left, const path& _Right);
+_FILESYSTEM_API _NODISCARD bool __cdecl equivalent(const path& _Left, const path& _Right);
 
 // FUNCTION file_size
 _FILESYSTEM_API _NODISCARD size_t __cdecl file_size(const path& _Target,
@@ -921,6 +932,16 @@ _FILESYSTEM_API _NODISCARD bool __cdecl rename(const path& _Old, const path& _Ne
 
 // FUNCTION resize_file
 _FILESYSTEM_API _NODISCARD bool __cdecl resize_file(const path& _Target, const size_t _Newsize);
+
+// STRUCT disk_space
+struct _FILESYSTEM_API disk_space final {
+    size_t _Available;
+    size_t _Capacity;
+    size_t _Free;
+};
+
+// FUNCTION space
+_FILESYSTEM_API _NODISCARD disk_space __cdecl space(const path& _Path);
 
 // FUNCTION write_back
 _FILESYSTEM_API _NODISCARD bool __cdecl write_back(const path& _Target, const path& _Writable);
