@@ -11,8 +11,7 @@
 #else // ^^^ !_HAS_WINDOWS ^^^ / vvv _HAS_WINDOWS vvv
 
 _FILESYSTEM_BEGIN
-_EXPERIMENTAL_BEGIN
-// FUNCTION TEMPLATE _Throw_system_error
+// FUNCTION _Throw_system_error
 __declspec(noreturn) void __cdecl _Throw_system_error(const char* const _Errpos, const char* const _Errm, const error_type _Errc) {
     switch (_Errc) {
     case error_type::invalid_argument:
@@ -33,8 +32,8 @@ __declspec(noreturn) void __cdecl _Throw_system_error(const char* const _Errpos,
 // FUNCTION filesystem_error::filesystem_error
 template<class _CharT, class>
 __cdecl filesystem_error::filesystem_error(const _CharT* const _Errm) {
-    this->_Src = {};
-    this->_Cat = {};
+    this->_Src = path();
+    this->_Cat = error_type();
     
     if constexpr (_STD is_same_v<_CharT, char>) {
         this->_What = _Errm;
@@ -55,7 +54,7 @@ template _FILESYSTEM_API __cdecl filesystem_error::filesystem_error(const wchar_
 
 template<class _CharT, class>
 __cdecl filesystem_error::filesystem_error(const _CharT* const _Errm, const error_type _Errc) {
-    this->_Src = {};
+    this->_Src = path();
     this->_Cat = _Errc;
 
     if constexpr (_STD is_same_v<_CharT, char>) {
@@ -124,8 +123,6 @@ __declspec(noreturn) void __cdecl _Throw_fs_error(const char* const _Errm, const
 __declspec(noreturn) void __cdecl _Throw_fs_error(const char* const _Errm, const error_type _Errc, const path& _Errpos) {
     _THROW(filesystem_error(_Errm, _Errc, _Errpos));
 }
-
-_EXPERIMENTAL_END
 _FILESYSTEM_END
 
 #endif // !_HAS_WINDOWS

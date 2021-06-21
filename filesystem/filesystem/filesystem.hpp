@@ -188,7 +188,6 @@ using _STD u32string_view;
 using _STD wstring_view;
 
 _FILESYSTEM_BEGIN
-_EXPERIMENTAL_BEGIN
 // expected slash on Windows 10
 inline constexpr char _Expected_slash   = '\\';
 inline constexpr char _Unexpected_slash = '/'; // default on Linux
@@ -264,7 +263,7 @@ enum class code_page {
     utf8 = 65001 // default code page
 };
 
-// FUNCTION TEMPLATE _Throw_system_error
+// FUNCTION _Throw_system_error
 _FILESYSTEM_API __declspec(noreturn) void __cdecl _Throw_system_error(const char* const _Errpos, const char* const _Errm, const error_type _Errc);
 
 // FUNCTION _Convert_narrow_to_wide
@@ -277,7 +276,7 @@ _FILESYSTEM_API _NODISCARD string __cdecl _Convert_wide_to_narrow(const code_pag
 template<class _Elem, class _Traits = char_traits<_Elem>>
 _FILESYSTEM_API _NODISCARD string __cdecl _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input);
 
-// FUNCTION TEMPLATE _Convert_wide_to_utf
+// FUNCTION TEMPLATE _Convert_narrow_to_utf
 template<class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
 _FILESYSTEM_API _NODISCARD basic_string<_Elem, _Traits, _Alloc> __cdecl _Convert_narrow_to_utf(const string_view _Input);
 
@@ -592,9 +591,6 @@ enum class _FILESYSTEM_API file_share : unsigned int {
 
 _BITOPS(file_share)
 
-// experimental file_status::_Refresh()
-#define _FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH 1
-
 // CLASS status
 class _FILESYSTEM_API file_status {
 public:
@@ -634,9 +630,6 @@ private:
     void __cdecl _Update_type(const file_type _Newtype) noexcept;
 
 private:
-#if !_FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH
-    struct stat _Stats; // file or directory stats
-#endif // !_FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH
     path _Path; // current working path
     file_attributes _Attribute; // current working path attribute
     file_permissions _Perms; // current working path right access
@@ -823,9 +816,6 @@ struct _FILESYSTEM_API file_time final {
     uint16_t _Second;
 };
 
-// experimental creation_data()
-#define _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT 1
-
 // FUNCTION creation_data
 _FILESYSTEM_API _NODISCARD file_time __cdecl creation_time(const path& _Target);
 
@@ -957,8 +947,6 @@ _FILESYSTEM_API _NODISCARD bool __cdecl write_inside(const path& _Target, const 
 
 // FUNCTION write_instead
 _FILESYSTEM_API _NODISCARD bool __cdecl write_instead(const path& _Target, const path& _Writable, const size_t _Line);
-
-_EXPERIMENTAL_END
 _FILESYSTEM_END
 
 #pragma warning(pop)

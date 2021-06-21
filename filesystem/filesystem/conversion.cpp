@@ -13,7 +13,6 @@
 #pragma warning(disable : 4996) // C4996: using deprecated content (<codecvt>)
 
 _FILESYSTEM_BEGIN
-_EXPERIMENTAL_BEGIN
 // FUNCTION _Convert_narrow_to_wide
 _NODISCARD wstring __cdecl _Convert_narrow_to_wide(const code_page _Code_page, const string_view _Input) {
     if (!_Input.empty()) {
@@ -136,7 +135,6 @@ _NODISCARD basic_string<_Elem, _Traits, _Alloc> __cdecl  _Convert_narrow_to_utf(
 template _FILESYSTEM_API _NODISCARD u8string __cdecl _Convert_narrow_to_utf(const string_view);
 template _FILESYSTEM_API _NODISCARD u16string __cdecl _Convert_narrow_to_utf(const string_view);
 template _FILESYSTEM_API _NODISCARD u32string __cdecl _Convert_narrow_to_utf(const string_view);
-_EXPERIMENTAL_END
 _FILESYSTEM_END
 
 #pragma warning(pop)

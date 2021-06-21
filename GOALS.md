@@ -1,2 +1,2 @@
 # Current goals:
-* release v1.0
+* update README.md

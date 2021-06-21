@@ -11,11 +11,9 @@
 #else // ^^^ !_HAS_WINDOWS ^^^ / vvv _HAS_WINDOWS vvv
 
 _FILESYSTEM_BEGIN
-_EXPERIMENTAL_BEGIN
 // FUNCTION TEMPLATE path::operator+
 _NODISCARD path __cdecl operator+(const path& _Left, const path& _Right) {
-    const auto _Result = _Left._Text + _Right._Text;
-    return path(_Result);
+    return path(_Left._Text + _Right._Text);
 }
 
 template<class _CharT>
@@ -96,7 +94,7 @@ template _FILESYSTEM_API _NODISCARD path __cdecl operator+(const u16string&, con
 template _FILESYSTEM_API _NODISCARD path __cdecl operator+(const u32string&, const path&);
 template _FILESYSTEM_API _NODISCARD path __cdecl operator+(const wstring&, const path&);
 
-// FUNCTION path::operator>>
+// FUNCTION TEMPLATE operator>>
 template<class _Elem, class _Traits = char_traits<_Elem>>
 _NODISCARD basic_istream<_Elem, _Traits>& __cdecl operator>>(basic_istream<_Elem, _Traits>& _Stream, path& _Path) {
     basic_string<_Elem, _Traits, allocator<_Elem>> _Input;
@@ -108,7 +106,7 @@ _NODISCARD basic_istream<_Elem, _Traits>& __cdecl operator>>(basic_istream<_Elem
 template _FILESYSTEM_API _NODISCARD istream& __cdecl operator>>(istream&, path&);
 template _FILESYSTEM_API _NODISCARD wistream& __cdecl operator>>(wistream&, path&);
 
-// FUNCTION path::operator<<
+// FUNCTION TEMPLATE operator<<
 template<class _Elem, class _Traits = char_traits<_Elem>>
 _NODISCARD basic_ostream<_Elem, _Traits>& __cdecl operator<<(basic_ostream<_Elem, _Traits>& _Stream, const path& _Path) {
     // current C++ standard supports only char and wchar_t streams
@@ -776,10 +774,8 @@ _NODISCARD path __stdcall current_path() noexcept {
     wchar_t _Buff[MAX_PATH];
     if (!_CSTD GetCurrentDirectoryW(MAX_PATH, _Buff)) { // failed to get current path
         _Throw_fs_error("failed to get current path", error_type::runtime_error, "current_path");
-
     }
 
-    // if won't throw an exception, will be able to return true
     return path(wstring(_Buff));
 }
 
@@ -793,10 +789,8 @@ _NODISCARD bool __cdecl current_path(const path& _Path) { // sets new current pa
         _Throw_fs_error("failed to set new path", error_type::runtime_error, "set_path");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
-_EXPERIMENTAL_END
 _FILESYSTEM_END
 
 #endif // !_HAS_WINDOWS

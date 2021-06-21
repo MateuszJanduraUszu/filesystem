@@ -11,7 +11,6 @@
 #else // ^^^ !_HAS_WINDOWS ^^^ / vvv _HAS_WINDOWS vvv
 
 _FILESYSTEM_BEGIN
-_EXPERIMENTAL_BEGIN
 // FUNCTION copy
 _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_options _Options) {
     if (!exists(_From)) { // path not found
@@ -61,7 +60,6 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
             }
         }
 
-        // if won't throw an exception, will be able to return true;
         return true;
     }
 
@@ -93,8 +91,7 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
                 if (read_all(_From) != read_all(_To)) { // failed to copy file
                     _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
                 }
-                
-                // if won't throw an exception, will be able to return true
+
                 return true;
             }
 
@@ -148,7 +145,6 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
                 _Throw_fs_error("failed to copy directory", error_type::runtime_error, "copy");
             }
 
-            // if won't throw an exception, will be able to return true
             return true;
         }
 
@@ -173,7 +169,6 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
                     _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
                 }
 
-                // if won't throw an exception, will be able to return true
                 return true;
             }
 
@@ -200,7 +195,6 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
                     _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
                 }
 
-                // if won't throw an exception, will be able to return true
                 return true;
             }
 
@@ -224,7 +218,6 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
                 _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
             }
 
-            // if won't throw an exception, will be able to return true
             return true;
         }
 
@@ -233,7 +226,6 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
                 _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
             }
 
-            // if won't throw an exception, will be able to return true
             return true;
         }
 
@@ -277,7 +269,6 @@ _NODISCARD bool __cdecl copy_file(const path& _From, const path& _To, const bool
             _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy_file");
         }
 
-        // if won't throw an exception, will be able to return true
         return true;
     } else { // don't touch old content
         const auto& _Src(read_all(_From));
@@ -293,7 +284,6 @@ _NODISCARD bool __cdecl copy_file(const path& _From, const path& _To, const bool
             _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy_file");
         }
 
-        // if won't throw an exception, will be able to return true
         return true;
     }
 }
@@ -322,7 +312,6 @@ _NODISCARD bool __cdecl create_directory(const path& _Path) { // creates new dir
         _Throw_fs_error("failed to create directory", error_type::runtime_error, "create_directory");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 
@@ -346,7 +335,6 @@ _NODISCARD bool __cdecl create_file(const path& _Path, const file_attributes _At
         _Throw_fs_error("failed to create file", error_type::runtime_error, "create_file");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 
@@ -361,7 +349,6 @@ _NODISCARD bool __cdecl create_hard_link(const path& _To, const path& _Hardlink)
         _Throw_fs_error("failed to create hard link", error_type::runtime_error, "create_hard_link");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 
@@ -415,7 +402,6 @@ _NODISCARD bool __cdecl create_junction(const path& _To, const path& _Junction) 
         _Throw_fs_error("failed to create junction", error_type::runtime_error, "create_junction");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 #pragma warning(pop)
@@ -427,7 +413,6 @@ _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink, co
         _Throw_fs_error("failed to create symlink", error_type::runtime_error, "create_symlink");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 
@@ -444,7 +429,6 @@ _NODISCARD bool __cdecl remove(const path& _Path) { // removes files and directo
         _Throw_fs_error("failed to remove target", error_type::runtime_error, "remove");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 
@@ -470,7 +454,7 @@ _NODISCARD bool __cdecl remove_all(const path& _Path) { // removes directory wit
     _Ops.pFrom  = _Src.c_str();
     _Ops.wFunc  = FO_DELETE;
 
-    if (_CSTD SHFileOperationW(&_Ops)) { // failed to remove directory
+    if (_CSTD SHFileOperationW(&_Ops)) { // failed to remove directory (failed if return value is non-zero)
         _Throw_fs_error("failed to remove directory", error_type::runtime_error, "remove_all");
     }
 
@@ -507,8 +491,6 @@ _NODISCARD bool __cdecl remove_junction(const path& _Target) {
     }
 
     _CSTD CloseHandle(_Handle);
-
-    // if won't throw an exception, will be able to return true
     return true;
 }
 
@@ -518,9 +500,9 @@ _NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line) { /
         _Throw_fs_error("file not found", error_type::runtime_error, "remove_line");
     }
 
-    const auto _All      = read_all(_Target);
-    const auto _Count    = _All.size();
-    const auto _Expected = _Count - 1; // count of lines after removed
+    const auto& _All      = read_all(_Target);
+    const auto& _Count    = _All.size();
+    const auto& _Expected = _Count - 1; // count of lines after removed
 
     if (_Line < 1 || _Line > _Count || _Expected < 0) { // invalid line
         _Throw_fs_error("invalid line", error_type::invalid_argument, "remove_line");
@@ -540,7 +522,6 @@ _NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line) { /
         _Throw_fs_error("failed to remove line", error_type::runtime_error, "remove_line");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 
@@ -551,15 +532,12 @@ _NODISCARD bool __cdecl rename(const path& _Old, const path& _New, const rename_
         _Throw_fs_error("failed to rename", error_type::runtime_error, "rename");
     }
 
-    // if won't throw an excepyion, will be able to return true
     return true;
 }
 
 _NODISCARD bool __cdecl rename(const path& _Old, const path& _New) {
     return rename(_Old, _New, rename_options::copy | rename_options::replace);
 }
-
-_EXPERIMENTAL_END
 _FILESYSTEM_END
 
 #endif // !_HAS_WINDOWS

@@ -11,7 +11,6 @@
 #else // ^^^ !_HAS_WINDOWS ^^^ / vvv _HAS_WINDOWS vvv
 
 _FILESYSTEM_BEGIN
-_EXPERIMENTAL_BEGIN
 // FUNCTION clear
 _NODISCARD bool __cdecl clear(const path& _Target) { // if directory, removes everything inside _Target, otherwise clears file
     if (!exists(_Target)) { // path not found
@@ -38,7 +37,6 @@ _NODISCARD bool __cdecl clear(const path& _Target) { // if directory, removes ev
                 _Throw_fs_error("failed to clear the directory", error_type::runtime_error, "clear");
             }
 
-            // if won't throw an exception, will be able to return true
             return true;
         } else { // file, symlink or other
             resize_file(_Target, 0);
@@ -47,7 +45,6 @@ _NODISCARD bool __cdecl clear(const path& _Target) { // if directory, removes ev
                 _Throw_fs_error("failed to clear the file", error_type::runtime_error, "clear");
             }
 
-            // same return as above
             return true;
         }
     }
@@ -101,7 +98,7 @@ _NODISCARD path __cdecl read_back(const path& _Target) { // reads last line in _
         return path();
     }
     
-    const auto _All = read_all(_Target);
+    const auto& _All = read_all(_Target);
     return _All[_All.size() - 1];
 }
 
@@ -130,7 +127,7 @@ _NODISCARD path __cdecl read_front(const path& _Target) { // reads first line in
 
 // FUNCTION read_inside
 _NODISCARD path __cdecl read_inside(const path& _Target, const size_t _Line) { // reads _Line line from _Target
-    const auto _All = read_all(_Target);
+    const auto& _All = read_all(_Target);
 
     if (_Line > _All.size() || _Line < 1) { // _Line grater than lines count or less than 1 (count starts from 1)
         _Throw_fs_error("invalid line", error_type::invalid_argument, "read_inside");
@@ -294,7 +291,6 @@ _NODISCARD bool __cdecl write_back(const path& _Target, const path& _Writable) {
         _Throw_fs_error("failed to overwritte the file", error_type::runtime_error, "write_back");
     }
 
-    // if won't throw exception, will be able to return true
     return true;
 }
 
@@ -312,7 +308,6 @@ _NODISCARD bool __cdecl write_front(const path& _Target, const path& _Writable) 
             _Throw_fs_error("failed to overwrite file", error_type::runtime_error, "write_end");
         }
 
-        // if won't throw exception, will be able to return true
         return true;
     }
 
@@ -337,7 +332,7 @@ _NODISCARD bool __cdecl write_front(const path& _Target, const path& _Writable) 
         _Throw_fs_error("failed to overwrite file", error_type::runtime_error, "write_front");
     }
     
-    return true; // same as if _Target is empty
+    return true;
 }
 
 // FUNCTION write_inside
@@ -383,7 +378,6 @@ _NODISCARD bool __cdecl write_inside(const path& _Target, const path& _Writable,
         _Throw_fs_error("failed to overwrite the file", error_type::runtime_error, "write_inside");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 
@@ -413,11 +407,8 @@ _NODISCARD bool __cdecl write_instead(const path& _Target, const path& _Writable
         _Throw_fs_error("failed to overwrite the  file", error_type::runtime_error, "write_instead");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
-
-_EXPERIMENTAL_END
 _FILESYSTEM_END
 
 #endif // !_HAS_WINDOWS

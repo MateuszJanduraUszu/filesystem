@@ -13,7 +13,6 @@
 #pragma warning(disable : 4996) // C4996: using deprecated content
 
 _FILESYSTEM_BEGIN
-_EXPERIMENTAL_BEGIN
 // FUNCTION file_status::file_status
 __thiscall file_status::file_status() noexcept {
     this->_Init();
@@ -28,9 +27,6 @@ __cdecl file_status::file_status(const path& _Path) noexcept {
 
 // FUNCTION file_status::_Init
 void __thiscall file_status::_Init() noexcept {
-#if !_FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH
-    this->_Stats = struct stat();
-#endif // !_FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH
     this->_Path      = path();
     this->_Attribute = file_attributes::none;
     this->_Perms     = file_permissions::none;
@@ -39,11 +35,6 @@ void __thiscall file_status::_Init() noexcept {
 
 // FUNCTION file_status::_Refresh
 void __thiscall file_status::_Refresh() noexcept {
-    // At the moment you can choose between stat(), _waccess() and REPARSE_DATA_BUFFER,
-    // (just define _FILESYSTEM_SUPPORTS_EXPERMIENTAL_FILE_STATUS_REFRESH as 1, if you want to use experimental _Refresh()
-    // or as 0, if you want to use old _Refresh()) but we're going to fully replace stat() and _waccess()
-    // with REPARSE_DATA_BUFFER and REPARSE_MOUNTPOINT_DATA_BUFFER.
-#if _FILESYSTEM_SUPPORTS_EXPERIMENTAL_FILE_STATUS_REFRESH
     this->_Update_attribute(static_cast<file_attributes>(_CSTD GetFileAttributesW(this->_Path.generic_wstring().c_str())));
 
     // If _Path not found, GetFileAttributeW() will return INVALID_FILE_ATTRIBUTES.
@@ -111,54 +102,6 @@ void __thiscall file_status::_Refresh() noexcept {
     } else { // regular file
         this->_Update_type(file_type::regular);
     }
-#else // ^^^ _FILESYSTEM_EXPERIMENTAL_REFRESH ^^^ / vvv !_FILESYSTEM_EXPERIMENTAL_REFRESH vvv
-    if (_CSTD stat(this->_Path.generic_string().c_str(), &this->_Stats) == 0) { // found file
-        if (_CSTD _waccess_s(this->_Path.generic_wstring().c_str(),
-            static_cast<int>(file_permissions::readonly) == EACCES)) { // read-only
-            this->_Update_permissions(file_permissions::readonly);
-        } else { // full access
-            this->_Update_permissions(file_permissions::all);
-        }
-
-        this->_Update_attribute(file_attributes{ static_cast<file_attributes>(
-            _CSTD GetFileAttributesW(this->_Path.generic_wstring().c_str())) });
-        
-
-        if ((this->_Attribute & file_attributes::reparse_point) == file_attributes::reparse_point) {
-            WIN32_FIND_DATAW _Data;
-            const HANDLE _Handle = _CSTD FindFirstFileW(this->_Path.generic_wstring().c_str(), &_Data);
-            
-            if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-                _Throw_fs_error("failed to get handle", error_type::runtime_error, "_Refresh");
-            }
-
-            if (_Data.dwReserved0 == static_cast<unsigned long>(file_reparse_tag::mount_point)) { // junction
-                this->_Update_type(file_type::junction);
-                return;
-            }
-
-            if (_Data.dwReserved0 == static_cast<unsigned long>(file_reparse_tag::symlink)) {
-                this->_Update_type(file_type::symlink);
-                return;
-            }
-
-            // all others are file or directory types
-        }
-
-        if ((this->_Attribute & file_attributes::directory) == file_attributes::directory) {
-            this->_Update_type(file_type::directory);
-        } else {
-            this->_Update_type(file_type::regular);
-        }
-
-        return; // successfully updated status
-    } 
-
-    // assign default values if path not found
-    this->_Update_attribute(file_attributes::none);
-    this->_Update_permissions(file_permissions::none);
-    this->_Update_type(file_type::not_found);
-#endif // _FILESYSTEM_SUPPORTS_EXPERMENTAL_FILE_STATUS_REFRESH
 }
 
 // FUNCTION file_status::_Update_attribute
@@ -355,7 +298,6 @@ _NODISCARD bool __cdecl change_attributes(const path& _Target, const file_attrib
         _Throw_fs_error("failed to change attributes", error_type::runtime_error, "change_attributes");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 
@@ -389,7 +331,6 @@ _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permi
         _Throw_fs_error("failed to set new permissions", error_type::runtime_error, "change_permissions");
     }
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 #pragma warning(pop)
@@ -404,11 +345,6 @@ _NODISCARD file_time __cdecl creation_time(const path& _Target) {
         _Throw_fs_error("path not found", error_type::runtime_error, "creation_time");
     }
 
-    // At the moment you can choose between stat() and _SYSTEMTIME,
-    // but we're going to fully replace stat() with _SYSTEMTIME and GetFileTime().
-    // If you prefer old creation_time(), just define _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT
-    // as 0 or use #undef _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT before <filesystem.hpp>.
-#if _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
         nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
@@ -433,7 +369,7 @@ _NODISCARD file_time __cdecl creation_time(const path& _Target) {
         _Throw_fs_error("failed to convert file time to system time", error_type::runtime_error, "creation_time");
     }
 
-    // Now we have to convert general system time to system time in user region
+    // now we have to convert general system time to system time in user region
     if (!_CSTD SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) { // failed to convert time
         _Throw_fs_error("failed to convert general system time to exact system time",
             error_type::runtime_error, "creation_time");
@@ -441,14 +377,6 @@ _NODISCARD file_time __cdecl creation_time(const path& _Target) {
 
     return {_Sys_exact_time.wYear, _Sys_exact_time.wMonth, _Sys_exact_time.wDay,
         _Sys_exact_time.wHour, _Sys_exact_time.wMinute, _Sys_exact_time.wSecond};
-#else // ^^^ _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT ^^^ / vvv !_FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT vvv
-    struct stat _Stats;
-    _CSTD stat(_Target.generic_string().c_str(), &_Stats); // refresh stats
-
-    const tm* _Time = _CSTD localtime(&_Stats.st_ctime);
-    return {_Time->tm_year + 1900, _Time->tm_mon + 1, _Time->tm_mday,
-        _Time->tm_hour, _Time->tm_min, _Time->tm_sec};
-#endif // _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT
 }
 
 // FUNCTION equivalent
@@ -554,8 +482,7 @@ _NODISCARD size_t __cdecl hard_link_count(const path& _Target,
 }
 
 _NODISCARD size_t __cdecl hard_link_count(const path& _Target) {
-    return hard_link_count(_Target, file_attributes::none,
-        file_flags::backup_semantics | file_flags::open_reparse_point);
+    return hard_link_count(_Target, file_attributes::none, file_flags::backup_semantics | file_flags::open_reparse_point);
 }
 
 // FUNCTION is_directory
@@ -627,7 +554,6 @@ _NODISCARD bool __cdecl is_symlink(const path& _Target) noexcept {
 
 // FUNCTION last_access_time
 _NODISCARD file_time __cdecl last_access_time(const path& _Target) {
-#if _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT
     if (!exists(_Target)) { // file/directory not found
         _Throw_fs_error("path not found", error_type::runtime_error, "last_access_time");
     }
@@ -656,7 +582,7 @@ _NODISCARD file_time __cdecl last_access_time(const path& _Target) {
         _Throw_fs_error("failed to convert file time to system time", error_type::runtime_error, "last_access_time");
     }
 
-    // Now we have to convert general system time to system time in user region.
+    // now we have to convert general system time to system time in user region
     if (!_CSTD SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) {
         // failed to convert general system time to exact system time
         _Throw_fs_error("failed to convert general system time to exact system time",
@@ -665,12 +591,6 @@ _NODISCARD file_time __cdecl last_access_time(const path& _Target) {
 
     return {_Sys_exact_time.wYear, _Sys_exact_time.wMonth, _Sys_exact_time.wDay,
         _Sys_exact_time.wHour, _Sys_exact_time.wMinute, _Sys_exact_time.wSecond};
-#else // ^^^ _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT ^^^ / vvv !_FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT vvv
-    _Throw_fs_error("The last_access_time() function is available only with support for experimental time menagement. "
-                    "If you want to use it, just define _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT as 1 before <filesystem.hpp>. "
-                    "The last_access_time() function will be in standard with future version.",
-                    error_type::runtime_error, "last_access_time");
-#endif // _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT
 }
 
 // FUNCTION last_write_time
@@ -679,11 +599,6 @@ _NODISCARD file_time __cdecl last_write_time(const path& _Target) {
         _Throw_fs_error("path not found", error_type::runtime_error, "last_write_time");
     }
 
-    // At the moment you can choose between stat() and _SYSTEMTIME,
-    // but we're going to fully replace stat() with _SYSTEMTIME and GetFileTime().
-    // If you prefer old last_write_time(), just define _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT
-    // as 0 or use #undef _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT before <filesystem.hpp>.
-#if _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
         nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
@@ -708,7 +623,7 @@ _NODISCARD file_time __cdecl last_write_time(const path& _Target) {
         _Throw_fs_error("failed to convert file time to system time", error_type::runtime_error, "last_write_time");
     }
 
-    // Now we have to convert general system time to system time in user region.
+    // now we have to convert general system time to system time in user region
     if (!_CSTD SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) {
         // failed to convert general system time to exact system time
         _Throw_fs_error("failed to convert general system time to exact system time",
@@ -717,14 +632,6 @@ _NODISCARD file_time __cdecl last_write_time(const path& _Target) {
 
     return {_Sys_exact_time.wYear, _Sys_exact_time.wMonth, _Sys_exact_time.wDay,
         _Sys_exact_time.wHour, _Sys_exact_time.wMinute, _Sys_exact_time.wSecond};
-#else // ^^^ _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT ^^^ / vvv !_FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT vvv
-    struct stat _Stats;
-    _CSTD stat(_Target.generic_string().c_str(), &_Stats);
-
-    const tm* _Time = _CSTD localtime(&_Stats.st_mtime);
-    return {_Time->tm_yday + 1900, _Time->tm_mon + 1, _Time->tm_mday,
-        _Time->tm_hour, _Time->tm_min, _Time->tm_sec};
-#endif // _FILESYSTEM_SUPPORTS_EXPERIMENTAL_TIME_MENAGEMENT
 }
 
 // FUNCTION space
@@ -741,8 +648,6 @@ _NODISCARD disk_space __cdecl space(const path& _Target) {
 
     return _Result;
 }
-
-_EXPERIMENTAL_END
 _FILESYSTEM_END
 
 #pragma warning(pop)
