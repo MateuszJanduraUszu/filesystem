@@ -125,3 +125,94 @@ template&lt;class \_Elem, class \_Traits = char\_traits&lt;\_Elem&gt;, class \_A
 [[nodiscard]] path \_\_cdecl operator+(const basic\_string&lt;\_Elem, \_Traits, \_Alloc&gt;& \_Left, const path& \_Right);
 
 Combines path with any string type.
+
+**operator&gt;&gt;**
+
+template&lt;class \_Elem, class \_Traits = char\_traits&lt;\_Elem&gt;&gt;  
+[[nodiscard]] basic\_istream&lt;\_Elem, \_Traits&gt;& \_\_cdecl operator&gt;&gt;(basic\_istream&lt;\_Elem, \_Traits&gt;& \_Stream, path& \_Path);
+
+Assigns content from input stream to **\_Path**.
+
+- **\_Stream** - current input stream  
+- **\_Path** - variable that will grab the content from **\_Stream**
+
+**operator&lt;&lt;**
+
+template&lt;class \_Elem, class \_Traits = char\_traits&lt;\_Elem&gt;&gt;  
+[[nodiscard]] basic\_ostream&lt;\_Elem, \_Traits&gt;& \_\_cdecl operator&lt;&lt;(basic\_ostream&lt;\_Elem, \_Traits&gt;& \_Stream, const path& \_Path);
+
+Inserts **\_Path** to output stream.
+
+**path::operator=**
+
+path& \_\_cdecl operator=(const path& \_Spource);  
+template&lt;class \_CharT&gt;  
+path& \_\_cdecl operator=(const \_CharT* const \_Source);  
+template&lt;class \_Src&gt;  
+path& \_\_cdecl operator=(const \_Src& \_Source);
+
+Assigns **\_Source** to current working path.  
+Enables only if **\_CharT** is character type and **\_Src** is source type or source for view type.  
+See **\_Is\_CharT**, **\_Is\_Src** and **\_Is\_SrcView**.
+
+- **\_Source** - variable\constant that is assigned to current working path
+
+**path::assign**
+
+path& \_\_cdecl assign(const path& \_Spource);  
+template&lt;class \_CharT&gt;  
+path& \_\_cdecl assign(const \_CharT* const \_Source);  
+template&lt;class \_Src&gt;  
+path& \_\_cdecl assign(const \_Src& \_Source);
+
+See **path::operator=**.
+
+**path::operator+=**
+
+path& \_\_cdecl operator+=(const path& \_Added);  
+template&lt;class \_CharT&gt;  
+path& \_\_cdecl operator+=(const \_CharT* const \_Added);  
+template&lt;class \_Src&gt;  
+path& \_\_cdecl operator+=(const \_Src& \_Added);
+
+Appends **\_Added** to current working path.
+
+- **\_Added** - variable\constant that is appedned to current working path
+
+**path::append**
+
+path& \_\_cdecl append(const path& \_Added);  
+template&lt;class \_CharT&gt;  
+path& \_\_cdecl append(const \_CharT* const \_Added);  
+template&lt;class \_Src&gt;  
+path& \_\_cdecl append(const \_Src& \_Added);
+
+See **path::operator+=**.
+
+**path::operator==**
+
+bool \_\_cdecl operator==(const path& \_Compare);  
+template&lt;class \_CharT&gt;  
+bool \_\_cdecl operator==(const \_CharT* const \_Compare);  
+template&lt;class \_Src&gt;  
+bool \_\_cdecl operator==(const \_Src& \_Compare);
+
+Checks if current working path is same as other.  
+Enables only if **\_CharT** is character type and **\_Src** is source/source for view type.  
+See **\_Is\_CharT**, **\_Is\_Src** and **\_Is\_SrcView**.
+
+- **\_Compare** - variable\constant that is compared with current working path
+
+**path::operator!=**
+
+bool \_\_cdecl operator!=(const path& \_Compare);  
+template&lt;class \_CharT&gt;  
+bool \_\_cdecl operator!=(const \_CharT* const \_Compare);  
+template&lt;class \_Src&gt;  
+bool \_\_cdecl operator!=(const \_Src& \_Compare);
+
+Checks if current working path isn't same as other.  
+Enables only if **\_CharT** is character type and **\_Src** is source/source for view type.  
+See **\_Is\_CharT**, **\_Is\_Src** and **\_Is\_SrcView**.
+
+- **\_Compare** - variable\constant that is compared with current working path
