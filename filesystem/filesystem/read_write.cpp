@@ -75,6 +75,10 @@ _NODISCARD vector<path> __cdecl read_all(const path& _Target) { // reads all lin
         }
 
         while (!_File.eof()) {
+            if (_All.size() + 1 >= _All.max_size()) { // don't use max size
+                _Throw_fs_error("file is too big", error_type::runtime_error, "read_all");
+            }
+
             _STD getline(_File, _Single);
             _All.push_back(_Single);
             _Single.clear();
