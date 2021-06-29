@@ -15,60 +15,60 @@
 _FILESYSTEM_BEGIN
 // FUNCTION file_status::file_status
 __thiscall file_status::file_status() noexcept {
-    this->_Init();
-    this->_Refresh();
+    _Init();
+    _Refresh();
 }
 
 __cdecl file_status::file_status(const path& _Path) noexcept {
-    this->_Init();
-    this->_Path = _Path;
-    this->_Refresh();
+    _Init();
+    _Mypath = _Path;
+    _Refresh();
 }
 
 // FUNCTION file_status::_Init
 void __thiscall file_status::_Init() noexcept {
-    this->_Path      = path();
-    this->_Attribute = file_attributes::none;
-    this->_Perms     = file_permissions::none;
-    this->_Type      = file_type::none;
+    _Mypath  = path();
+    _Myattr  = file_attributes::none;
+    _Myperms = file_permissions::none;
+    _Mytype  = file_type::none;
 }
 
 // FUNCTION file_status::_Refresh
 void __thiscall file_status::_Refresh() noexcept {
-    this->_Update_attribute(static_cast<file_attributes>(_CSTD GetFileAttributesW(this->_Path.generic_wstring().c_str())));
+    _Update_attribute(static_cast<file_attributes>(_CSTD GetFileAttributesW(_Mypath.generic_wstring().c_str())));
 
-    // If _Path not found, GetFileAttributeW() will return INVALID_FILE_ATTRIBUTES.
+    // If _Mypath not found, GetFileAttributeW() will return INVALID_FILE_ATTRIBUTES.
     // Don't use GetLastError() to check if _Path exists, because some functions
     // will return ERROR_PATH_NOT_FOUND and others ERROR_FILE_NOT_FOUND when they cannot find target.
-    if (this->_Attribute == file_attributes::unknown) { // file_attributes::unknown means, that target not found
-        this->_Update_attribute(file_attributes::none);
-        this->_Update_permissions(file_permissions::none);
-        this->_Update_type(file_type::not_found);
+    if (_Myattr == file_attributes::unknown) { // file_attributes::unknown means, that target not found
+        _Update_attribute(file_attributes::none);
+        _Update_permissions(file_permissions::none);
+        _Update_type(file_type::not_found);
         return; // don't check anything else
     }
 
-    // check _Path attributes
-    if ((this->_Attribute & file_attributes::readonly) == file_attributes::readonly) { // read-only
-        this->_Update_permissions(file_permissions::readonly);
+    // check _Mypath attributes
+    if ((_Myattr & file_attributes::readonly) == file_attributes::readonly) { // read-only
+        _Update_permissions(file_permissions::readonly);
     } else { // full access
-        this->_Update_permissions(file_permissions::all);
+        _Update_permissions(file_permissions::all);
     }
 
     // Theoretically we could use FindFirstFile() with WIN32_FIND_DATAW, because it's a bit faster,
     // but when we use DeviceIoControl(), we are on lower level, where we can define buffer size etc.
-    // It's safer as well, because if _Path is bad, there're only execptions from us.
+    // It's safer as well, because if _Mypath is bad, there're only execptions from us.
     
     // checks if _Path is a reparse point, if is check type
-    if ((this->_Attribute & file_attributes::reparse_point) == file_attributes::reparse_point) {
+    if ((_Myattr & file_attributes::reparse_point) == file_attributes::reparse_point) {
         // In some cases _Refresh() may using more bytes than defaule maximum (16384 bytes).
         // To avoid C6262 warning and potential threat, buffor size is set to 16284 bytes.
         // It shouldn't change result and it's safer. If your /analyse:stacksize is set to larger value,
         // you can change buffer size.
         unsigned char _Buff[MAXIMUM_REPARSE_DATA_BUFFER_SIZE - 100];
         reparse_data_buffer& _Reparse_buff = reinterpret_cast<reparse_data_buffer&>(_Buff);
-        unsigned long _Bytes; // returned bytes from DeviceIoControl
+        unsigned long _Bytes; // returned bytes from DeviceIoControl()
 
-        const HANDLE _Handle = _CSTD CreateFileW(this->_Path.generic_wstring().c_str(),
+        const HANDLE _Handle = _CSTD CreateFileW(_Mypath.generic_wstring().c_str(),
             static_cast<unsigned long>(file_access::all), static_cast<unsigned long>(file_share::read),
             nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
                 file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
@@ -85,92 +85,92 @@ void __thiscall file_status::_Refresh() noexcept {
         _CSTD CloseHandle(_Handle);
 
         if (_Reparse_buff._Reparse_tag == static_cast<unsigned long>(file_reparse_tag::mount_point)) { // junction
-            this->_Update_type(file_type::junction);
+            _Update_type(file_type::junction);
             return;
         }
 
         if (_Reparse_buff._Reparse_tag == static_cast<unsigned long>(file_reparse_tag::symlink)) {
-            this->_Update_type(file_type::symlink);
+            _Update_type(file_type::symlink);
             return;
         }
 
         // all others are file or directory types
     }
 
-    if ((this->_Attribute & file_attributes::directory) == file_attributes::directory) { // directory
-        this->_Update_type(file_type::directory);
+    if ((_Myattr & file_attributes::directory) == file_attributes::directory) { // directory
+        _Update_type(file_type::directory);
     } else { // regular file
-        this->_Update_type(file_type::regular);
+        _Update_type(file_type::regular);
     }
 }
 
 // FUNCTION file_status::_Update_attribute
 void __cdecl file_status::_Update_attribute(const file_attributes _Newattrib) noexcept {
-    this->_Attribute = _Newattrib;
+    _Myattr = _Newattrib;
 }
 
 // FUNCTION file_status::_Update_permissions
 void __cdecl file_status::_Update_permissions(const file_permissions _Newperms) noexcept {
-    this->_Perms = _Newperms;
+    _Myperms = _Newperms;
 }
 
 // FUNCTION file_status::_Update_type
 void __cdecl file_status::_Update_type(const file_type _Newtype) noexcept {
-    this->_Type = _Newtype;
+    _Mytype = _Newtype;
 }
 
 // FUNCTION file_status::attribute
 _NODISCARD const file_attributes __thiscall file_status::attribute() const noexcept {
-    return this->_Attribute;
+    return _Myattr;
 }
 
 // FUNCTION file_status::permissions
 _NODISCARD const file_permissions __thiscall file_status::permissions() const noexcept {
-    return this->_Perms;
+    return _Myperms;
 }
 
 // FUNCTION file_status::type
 _NODISCARD const file_type __thiscall file_status::type() const noexcept {
-    return this->_Type;
+    return _Mytype;
 }
 
 // FUNCTION directory_data::directory_data
 __thiscall directory_data::directory_data() noexcept {
-    this->_Init();
-    this->_Refresh(); // get the latest informaions
+    _Init();
+    _Refresh(); // get the latest informaions
 }
 
 __cdecl directory_data::directory_data(const path& _Path) noexcept {
-    this->_Init();
-    this->_Path = _Path; // update current working path
-    this->_Refresh(); // get the latest informaions
+    _Init();
+    _Mypath = _Path; // update current working path
+    _Refresh(); // get the latest informaions
 }
 
 // FUNCTION directory_data::_Init
 void __thiscall directory_data::_Init() noexcept {
-    this->_Path = path();
+    _Mypath = path();
 
-    for (size_t _Idx = 0; _Idx < this->_Counts.size(); ++_Idx) {
-        this->_Counts[_Idx] = 0;
-        this->_Names[_Idx]  = {};
+    for (size_t _Idx = 0; _Idx < _Mycount.size(); ++_Idx) {
+        _Mycount[_Idx] = 0;
+        _Myname[_Idx]  = {};
     }
 }
 
 // FUNCTION directory_data::_Refresh
 void __thiscall directory_data::_Refresh() noexcept {
-    if (!exists(this->_Path)) { // directory not found
+    if (!exists(_Mypath)) { // directory not found
         _Throw_fs_error("directory not found", error_type::runtime_error, "_Refresh");
     }
 
-    // _Path must be directory
-    if (!is_directory(this->_Path) && !is_junction(this->_Path)
-        && !_CSTD PathIsDirectoryW(this->_Path.generic_wstring().c_str())) { // expected directory
+    // _Mypath must be directory
+    if (!is_directory(_Mypath) && !is_junction(_Mypath)
+        && !_CSTD PathIsDirectoryW(_Mypath.generic_wstring().c_str())) { // expected directory
         _Throw_fs_error("expected directory", error_type::runtime_error, "_Refresh");
     }
 
-    if (!is_empty(this->_Path)) {
+    if (!is_empty(_Mypath)) {
         WIN32_FIND_DATAW _Data;
-        const HANDLE _Handle = _CSTD FindFirstFileExW(path(this->_Path + LR"(\*)").generic_wstring().c_str(),
+        const HANDLE _Handle = _CSTD FindFirstFileExW(path(_Mypath + LR"(\*)").generic_wstring().c_str(),
             FindExInfoBasic, &_Data, FindExSearchNameMatch, nullptr, 0);
 
         if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
@@ -184,107 +184,107 @@ void __thiscall directory_data::_Refresh() noexcept {
         } while (_CSTD FindNextFileW(_Handle, &_Data));
         _CSTD FindClose(_Handle);
 
-        this->_Reset(); // clear everything
+        _Reset(); // clear everything
         path _Precise; // creates full path to _All[_Idx]
 
         for (const auto& _Elem : _All) {
             if (_Elem != "." && _Elem != "..") { // skip dots
-                _Precise = this->_Path + LR"(\)" + _Elem;
+                _Precise = _Mypath + LR"(\)" + _Elem;
 
                 if (is_directory(_Precise)) { // directory
-                    this->_Names[0].push_back(_Elem);
+                    _Myname[0].push_back(_Elem);
                 } else if (is_junction(_Precise)) { // junction (as directory)
-                    this->_Names[1].push_back(_Elem);
+                    _Myname[1].push_back(_Elem);
                 } else if (is_other(_Precise)) { // other
-                    this->_Names[2].push_back(_Elem);
+                    _Myname[2].push_back(_Elem);
                 } else if (is_regular_file(_Precise)) { // regular file
-                    this->_Names[3].push_back(_Elem);
+                    _Myname[3].push_back(_Elem);
                 } else if (is_symlink(_Precise)) { // symlink (directory or file)
-                    this->_Names[4].push_back(_Elem);
+                    _Myname[4].push_back(_Elem);
                 }
 
-                this->_Names[5].push_back(_Elem); // _Names[5] (total()) takes every type
+                _Myname[5].push_back(_Elem); // _Myname[5] (total) takes every type
             }
         }
 
-        for (size_t _Idx = 0; _Idx < this->_Names.size(); ++_Idx) {
-            this->_Counts[_Idx] = this->_Names[_Idx].size();
+        for (size_t _Idx = 0; _Idx < _Myname.size(); ++_Idx) {
+            _Mycount[_Idx] = _Myname[_Idx].size();
         }
 
-        return; // that's all if _Path isn't empty
+        return; // that's all if _Mypath isn't empty
     }
 
-    // if _Path is empty, leave variables without value
-    this->_Reset();
+    // if _Mypath is empty, leave variables without value
+    _Reset();
 }
 
 // FUNCTION directory_data::_Reset
 void __thiscall directory_data::_Reset() noexcept {
     // _Init() cannot be used here, because removes value from _Path
-    for (size_t _Idx = 0; _Idx < this->_Counts.size(); ++_Idx) {
-        this->_Counts[_Idx] = 0;
-        this->_Names[_Idx].clear();
+    for (size_t _Idx = 0; _Idx < _Mycount.size(); ++_Idx) {
+        _Mycount[_Idx] = 0;
+        _Myname[_Idx].clear();
     }
 }
 
 // FUNCTION directory_data::directories
 _NODISCARD const vector<path>& __thiscall directory_data::directories() const noexcept {
-    return this->_Names[0];
+    return _Myname[0];
 }
 
 // FUNCTION directory_data::directories_count
 _NODISCARD const size_t __thiscall directory_data::directories_count() const noexcept {
-    return this->_Counts[0];
+    return _Mycount[0];
 }
 
 // FUNCTION directory_data::junctions
 _NODISCARD const vector<path>& __thiscall directory_data::junctions() const noexcept {
-    return this->_Names[1];
+    return _Myname[1];
 }
 
 // FUNCTION directory_data::junctions_count
 _NODISCARD const size_t __thiscall directory_data::junctions_count() const noexcept {
-    return this->_Counts[1];
+    return _Mycount[1];
 }
 
 // FUNCTION directory_data::others
 _NODISCARD const vector<path>& __thiscall directory_data::others() const noexcept {
-    return this->_Names[2];
+    return _Myname[2];
 }
 
 // FUNCTION directory_data::others_count
 _NODISCARD const size_t __thiscall directory_data::others_count() const noexcept {
-    return this->_Counts[2];
+    return _Mycount[2];
 }
 
 // FUNCTION directory_data::regular_files
 _NODISCARD const vector<path>& __thiscall directory_data::regular_files() const noexcept {
-    return this->_Names[3];
+    return _Myname[3];
 }
 
 // FUNCTION directory_data::regular_files_count
 _NODISCARD const size_t __thiscall directory_data::regular_files_count() const noexcept {
-    return this->_Counts[3];
+    return _Mycount[3];
 }
 
 // FUNCTION directory_data::symlinks
 _NODISCARD const vector<path>& __thiscall directory_data::symlinks() const noexcept {
-    return this->_Names[4];
+    return _Myname[4];
 }
 
 // FUNCTION directory_data::symlinks_count
 _NODISCARD const size_t __thiscall directory_data::symlinks_count() const noexcept {
-    return this->_Counts[4];
+    return _Mycount[4];
 }
 
 // FUNCTION directory_data::total
 _NODISCARD const vector<path>& __thiscall directory_data::total() const noexcept {
-    return this->_Names[5];
+    return _Myname[5];
 }
 
 // FUNCTION directory_data::total_count
 _NODISCARD const size_t __thiscall directory_data::total_count() const noexcept {
-    return this->_Counts[5];
+    return _Mycount[5];
 }
 
 // FUNCTION change_attributes

@@ -193,57 +193,57 @@ inline constexpr char _Expected_slash   = '\\';
 inline constexpr char _Unexpected_slash = '/'; // default on Linux
 
 // CONSTANT _Is_CharT
-template<class>
+template <class>
 inline constexpr bool _Is_CharT = false;
 
-template<>
+template <>
 inline constexpr bool _Is_CharT<char> = true;
-template<>
+template <>
 inline constexpr bool _Is_CharT<char8_t> = true;
-template<>
+template <>
 inline constexpr bool _Is_CharT<char16_t> = true;
-template<>
+template <>
 inline constexpr bool _Is_CharT<char32_t> = true;
-template<>
+template <>
 inline constexpr bool _Is_CharT<wchar_t> = true;
 
 // CLASS path
 class path;
 
 // CONSTANT _Is_Src
-template<class>
+template <class>
 inline constexpr bool _Is_Src = false;
 
-template<>
+template <>
 inline constexpr bool _Is_Src<path> = false; // to avoid errors in copy constructors, in path
 
-template<>
+template <>
 inline constexpr bool _Is_Src<string> = true;
-template<>
+template <>
 inline constexpr bool _Is_Src<u8string> = true;
-template<>
+template <>
 inline constexpr bool _Is_Src<u16string> = true;
-template<>
+template <>
 inline constexpr bool _Is_Src<u32string> = true;
-template<>
+template <>
 inline constexpr bool _Is_Src<wstring> = true;
 
 // CONSTANT _Is_SrcView
-template<class>
+template <class>
 inline constexpr bool _Is_SrcView = false;
 
-template<>
+template <>
 inline constexpr bool _Is_SrcView<path> = false; // to avoid errors in copy constructors, in path
 
-template<>
+template <>
 inline constexpr bool _Is_SrcView<string_view> = true;
-template<>
+template <>
 inline constexpr bool _Is_SrcView<u8string_view> = true;
-template<>
+template <>
 inline constexpr bool _Is_SrcView<u16string_view> = true;
-template<>
+template <>
 inline constexpr bool _Is_SrcView<u32string_view> = true;
-template<>
+template <>
 inline constexpr bool _Is_SrcView<wstring_view> = true;
 
 #ifndef MAX_PATH
@@ -273,42 +273,34 @@ _FILESYSTEM_API _NODISCARD wstring __cdecl _Convert_narrow_to_wide(const code_pa
 _FILESYSTEM_API _NODISCARD string __cdecl _Convert_wide_to_narrow(const code_page _Code_page, const wstring_view _Input);
 
 // FUNCTION TEMPLATE _Convert_utf_to_wide
-template<class _Elem, class _Traits = char_traits<_Elem>>
+template <class _Elem, class _Traits = char_traits<_Elem>>
 _FILESYSTEM_API _NODISCARD string __cdecl _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input);
 
 // FUNCTION TEMPLATE _Convert_narrow_to_utf
-template<class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
+template <class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
 _FILESYSTEM_API _NODISCARD basic_string<_Elem, _Traits, _Alloc> __cdecl _Convert_narrow_to_utf(const string_view _Input);
 
+// FUNCTION TEMPLATE operator>>
+template <class _Elem, class _Traits>
+_FILESYSTEM_API _NODISCARD basic_istream<_Elem, _Traits>& __cdecl operator>>(basic_istream<_Elem, _Traits>&, path&);
+
+// FUNCTION TEMPLATE operator<<
+template <class _Elem, class _Traits>
+_FILESYSTEM_API _NODISCARD basic_ostream<_Elem, _Traits>& __cdecl operator<<(basic_ostream<_Elem, _Traits>&, const path&);
+
 // FUNCTION TEMPLATE operator+
-// enables path concatenation with C/C++ strings
-_FILESYSTEM_API _NODISCARD path __cdecl operator+(const path& _Left, const path& _Right);
-template<class _CharT>
-_FILESYSTEM_API _NODISCARD path __cdecl operator+(const path& _Left, const _CharT* const _Right);
-template<class _CharT>
-_FILESYSTEM_API _NODISCARD path __cdecl operator+(const _CharT* const _Left, const path& _Right);
-template<class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
-_FILESYSTEM_API _NODISCARD path __cdecl operator+(const path& _Left, const basic_string<_Elem, _Traits, _Alloc>& _Right);
-template<class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
-_FILESYSTEM_API _NODISCARD path __cdecl operator+(const basic_string<_Elem, _Traits, _Alloc>& _Left, const path& _Right);
+_FILESYSTEM_API _NODISCARD path __cdecl operator+(const path&, const path&);
+template <class _CharT>
+_FILESYSTEM_API _NODISCARD path __cdecl operator+(const path&, const _CharT* const);
+template <class _CharT>
+_FILESYSTEM_API _NODISCARD path __cdecl operator+(const _CharT* const, const path&);
+template <class _Elem, class _Traits, class _Alloc>
+_FILESYSTEM_API _NODISCARD path __cdecl operator+(const path&, const basic_string<_Elem, _Traits, _Alloc>&);
+template <class _Elem, class _Traits, class _Alloc>
+_FILESYSTEM_API _NODISCARD path __cdecl operator+(const basic_string<_Elem, _Traits, _Alloc>&, const path&);
 
 // CLASS path
-class _FILESYSTEM_API path {
-private:
-    template<class _Elem, class _Traits>
-    friend basic_istream<_Elem, _Traits>& __cdecl operator>>(basic_istream<_Elem, _Traits>&, path&);
-    template<class _Elem, class _Traits>
-    friend basic_ostream<_Elem, _Traits>& __cdecl operator<<(basic_ostream<_Elem, _Traits>&, const path&);
-    friend path __cdecl operator+(const path&, const path&);
-    template<class _CharT>
-    friend path __cdecl operator+(const path&, const _CharT* const);
-    template<class _CharT>
-    friend path __cdecl operator+(const _CharT* const, const path&);
-    template<class _Elem, class _Traits, class _Alloc>
-    friend path __cdecl operator+(const path&, const basic_string<_Elem, _Traits, _Alloc>&);
-    template<class _Elem, class _Traits, class _Alloc>
-    friend path __cdecl operator+(const basic_string<_Elem, _Traits, _Alloc>&, const path&);
-
+class _FILESYSTEM_API path { // takes any string of characters
 public:
     using value_type  = char;
     using string_type = string;
@@ -318,10 +310,10 @@ public:
     __cdecl path(path&&)       = default;
     virtual __thiscall ~path() = default;
 
-    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    template <class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
     __cdecl path(const _CharT* const _Source); // all character types
 
-    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
     __cdecl path(const _Src& _Source); // all string types
 
 private:
@@ -331,50 +323,50 @@ public:
     path& __cdecl operator=(const path& _Source);
     path& __cdecl assign(const path& _Source);
 
-    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    template <class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
     path& __cdecl operator=(const _CharT* const _Source); // all character types
 
-    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    template <class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
     path& __cdecl assign(const _CharT* const _Source); // all character types
 
-    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
     path& __cdecl operator=(const _Src& _Source); // all string types
 
-    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
     path& __cdecl assign(const _Src& _Source); // all string types
 
 public:
     path& __cdecl operator+=(const path& _Added);
     path& __cdecl append(const path& _Added);
 
-    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    template <class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
     path& __cdecl operator+=(const _CharT* const _Added); // all character types
 
-    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    template <class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
     path& __cdecl append(const _CharT* const _Added); // all character types
 
-    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
     path& __cdecl operator+=(const _Src& _Added); // all string types
 
-    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
     path& __cdecl append(const _Src& _Added); // all string types
 
 public:
     bool __cdecl operator==(const path& _Compare) const noexcept;
 
-    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    template <class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
     bool __cdecl operator==(const _CharT* const _Compare) const;
 
-    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
     bool __cdecl operator==(const _Src& _Compare) const;
 
 public:
     bool __cdecl operator!=(const path& _Compare) const noexcept;
 
-    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    template <class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
     bool __cdecl operator!=(const _CharT* const _Compare) const;
 
-    template<class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
     bool __cdecl operator!=(const _Src& _Compare) const;
 
 public:
@@ -401,16 +393,16 @@ public:
     _NODISCARD const string __thiscall generic_string() const noexcept;
 
     // returns current working path as u8string
-    _NODISCARD const u8string __thiscall generic_u8string() const;
+    _NODISCARD const u8string __thiscall generic_u8string() const noexcept;
 
     // returns current working path as u16string
-    _NODISCARD const u16string __thiscall generic_u16string() const;
+    _NODISCARD const u16string __thiscall generic_u16string() const noexcept;
 
     // returns current working path as u32string
-    _NODISCARD const u32string __thiscall generic_u32string() const;
+    _NODISCARD const u32string __thiscall generic_u32string() const noexcept;
 
     // returns current working path as wstring
-    _NODISCARD const wstring __thiscall generic_wstring() const;
+    _NODISCARD const wstring __thiscall generic_wstring() const noexcept;
 
     // checks if current working path has drive
     _NODISCARD bool __thiscall has_drive() const noexcept;
@@ -470,21 +462,21 @@ public:
     _NODISCARD path __thiscall stem() const noexcept;
 
 private:
-    string_type _Text; // current working path
+    string_type _Mytext; // current working path
 };
 
 // CLASS filesystem_error
 class _FILESYSTEM_API filesystem_error { // base of all filesystem errors
 public:
-    __thiscall filesystem_error() noexcept : _Src(), _Cat(), _What() {}
+    __thiscall filesystem_error() noexcept : _Mysrc(path{}), _Mycat(error_type{}), _Mywhat(nullptr) {}
 
-    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    template <class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
     __cdecl filesystem_error(const _CharT* const _Errm);
 
-    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    template <class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
     __cdecl filesystem_error(const _CharT* const _Errm, const error_type _Errc);
 
-    template<class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
+    template <class _CharT, class = enable_if<_Is_CharT<_CharT>, void>>
     __cdecl filesystem_error(const _CharT* const _Errm, const error_type _Errc, const path& _Errpos);
 
 public:
@@ -495,10 +487,19 @@ public:
     _NODISCARD const char* __thiscall what() const noexcept; // informations about error
 
 private:
-    path _Src; // source of the error
-    error_type _Cat; // error category
-    const char* _What; // error message
+    path _Mysrc; // source of the error
+    error_type _Mycat; // error category
+    const char* _Mywhat; // error message
 };
+
+namespace path_literals {
+    // FUNCTION operator""p
+    _FILESYSTEM_API _NODISCARD path __cdecl operator""__p(const char* const _Str, const size_t _Size) noexcept;
+    _FILESYSTEM_API _NODISCARD path __cdecl operator""__p(const char8_t* const _Str, const size_t _Size) noexcept;
+    _FILESYSTEM_API _NODISCARD path __cdecl operator""__p(const char16_t* const _Str, const size_t _Size) noexcept;
+    _FILESYSTEM_API _NODISCARD path __cdecl operator""__p(const char32_t* const _Str, const size_t _Size) noexcept;
+    _FILESYSTEM_API _NODISCARD path __cdecl operator""__p(const wchar_t* const _Str, const size_t _Size) noexcept;
+} // path_literals
 
 // FUNCTION _Throw_fs_error
 _FILESYSTEM_API __declspec(noreturn) void __cdecl _Throw_fs_error(const char* const _Errm);
@@ -591,7 +592,7 @@ enum class _FILESYSTEM_API file_share : unsigned int {
 
 _BITOPS(file_share)
 
-// CLASS status
+// CLASS file_status
 class _FILESYSTEM_API file_status {
 public:
     __thiscall file_status() noexcept;
@@ -630,10 +631,10 @@ private:
     void __cdecl _Update_type(const file_type _Newtype) noexcept;
 
 private:
-    path _Path; // current working path
-    file_attributes _Attribute; // current working path attribute
-    file_permissions _Perms; // current working path right access
-    file_type _Type; // current working path type
+    path _Mypath; // current working path
+    file_attributes _Myattr; // current working path attribute
+    file_permissions _Myperms; // current working path right access
+    file_type _Mytype; // current working path type
 };
 
 // ENUM CLASS rename_options
@@ -645,7 +646,7 @@ enum class _FILESYSTEM_API rename_options : unsigned int {
 
 _BITOPS(rename_options)
 
-// ENUM CLASS symlink_flag
+// ENUM CLASS symlink_flags
 enum class _FILESYSTEM_API symlink_flags {
     file               = 0x0, // symbolic link to file
     directory          = 0x1, // SYMBOLIC_LING_FLAG_DIRECTORY, symbolic link to directory
@@ -714,9 +715,9 @@ private:
     void __thiscall _Reset() noexcept;
 
 private:
-    path _Path; // current working path
-    array<vector<path>, 6> _Names; // directory, junction, other, regular, symlink and total
-    array<size_t, 6> _Counts; // count of directorires, junctions, others, regulars, symlinks and total
+    path _Mypath; // current working path
+    array<vector<path>, 6> _Myname; // directory, junction, other, regular, symlink and total
+    array<size_t, 6> _Mycount; // count of directorires, junctions, others, regulars, symlinks and total
 };
 
 // STRUCT reparse_data_buffer

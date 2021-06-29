@@ -75,7 +75,7 @@ _NODISCARD string __cdecl _Convert_wide_to_narrow(const code_page _Code_page, co
 }
 
 // FUNCTION TEMPLATE _Convert_utf_to_wide
-template<class _Elem, class _Traits>
+template <class _Elem, class _Traits>
 _NODISCARD string __cdecl _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input) {
     if (!_Input.empty()) {
         if (_Input.size() > static_cast<size_t>(INT_MAX)) {
@@ -105,7 +105,7 @@ template _FILESYSTEM_API _NODISCARD string __cdecl _Convert_utf_to_narrow(const 
 template _FILESYSTEM_API _NODISCARD string __cdecl _Convert_utf_to_narrow(const u32string_view);
 
 // FUNCTION TEMPLATE _Convert_narrow_to_utf
-template<class _Elem, class _Traits, class _Alloc>
+template <class _Elem, class _Traits, class _Alloc>
 _NODISCARD basic_string<_Elem, _Traits, _Alloc> __cdecl  _Convert_narrow_to_utf(const string_view _Input) {
     using _Mystr = basic_string<_Elem, _Traits, _Alloc>;
 

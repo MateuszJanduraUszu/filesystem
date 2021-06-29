@@ -30,19 +30,19 @@ __declspec(noreturn) void __cdecl _Throw_system_error(const char* const _Errpos,
 }
 
 // FUNCTION filesystem_error::filesystem_error
-template<class _CharT, class>
+template <class _CharT, class>
 __cdecl filesystem_error::filesystem_error(const _CharT* const _Errm) {
-    this->_Src = path();
-    this->_Cat = error_type();
+    _Mysrc = path();
+    _Mycat = error_type();
     
     if constexpr (_STD is_same_v<_CharT, char>) {
-        this->_What = _Errm;
+        _Mywhat = _Errm;
     } else if constexpr (_STD is_same_v<_CharT, wchar_t>) {
-        const auto _Cvt = _Convert_wide_to_narrow(code_page::utf8, _Errm);
-        this->_What     = _Cvt.c_str(); 
+        const auto& _Cvt = _Convert_wide_to_narrow(code_page::utf8, _Errm);
+        _Mywhat          = _Cvt.c_str(); 
     } else { // const char8_t*, const char16_t* and const char32_t*
-        const auto _Cvt = _Convert_utf_to_narrow<_CharT, char_traits<_CharT>>(_Errm);
-        this->_What     = _Cvt.c_str();
+        const auto& _Cvt = _Convert_utf_to_narrow<_CharT, char_traits<_CharT>>(_Errm);
+        _Mywhat          = _Cvt.c_str();
     }
 }
 
@@ -52,19 +52,19 @@ template _FILESYSTEM_API __cdecl filesystem_error::filesystem_error(const char16
 template _FILESYSTEM_API __cdecl filesystem_error::filesystem_error(const char32_t* const);
 template _FILESYSTEM_API __cdecl filesystem_error::filesystem_error(const wchar_t* const);
 
-template<class _CharT, class>
+template <class _CharT, class>
 __cdecl filesystem_error::filesystem_error(const _CharT* const _Errm, const error_type _Errc) {
-    this->_Src = path();
-    this->_Cat = _Errc;
+    _Mysrc = path();
+    _Mycat = _Errc;
 
     if constexpr (_STD is_same_v<_CharT, char>) {
-        this->_What = _Errm;
+        _Mywhat = _Errm;
     } else if constexpr (_STD is_same_v<_CharT, wchar_t>) {
-        const auto _Cvt = _Convert_wide_to_narrow(code_page::utf8, _Errm);
-        this->_What     = _Cvt.c_str();
+        const auto& _Cvt = _Convert_wide_to_narrow(code_page::utf8, _Errm);
+        _Mywhat          = _Cvt.c_str();
     } else { // const char8_t*, const char16_t* and const char32_t*
-        const auto _Cvt = _Convert_utf_to_narrow<_CharT, char_traits<_CharT>>(_Errm);
-        this->_What     = _Cvt.c_str();
+        const auto& _Cvt = _Convert_utf_to_narrow<_CharT, char_traits<_CharT>>(_Errm);
+        _Mywhat          = _Cvt.c_str();
     }
 }
 
@@ -74,19 +74,19 @@ template _FILESYSTEM_API __cdecl filesystem_error::filesystem_error(const char16
 template _FILESYSTEM_API __cdecl filesystem_error::filesystem_error(const char32_t* const, const error_type);
 template _FILESYSTEM_API __cdecl filesystem_error::filesystem_error(const wchar_t* const, const error_type);
 
-template<class _CharT, class>
+template <class _CharT, class>
 __cdecl filesystem_error::filesystem_error(const _CharT* const _Errm, const error_type _Errc, const path& _Errpos) {
-    this->_Src = _Errpos;
-    this->_Cat = _Errc;
+    _Mysrc = _Errpos;
+    _Mycat = _Errc;
 
     if constexpr (_STD is_same_v<_CharT, char>) {
-        this->_What = _Errm;
+        _Mywhat = _Errm;
     } else if constexpr (_STD is_same_v<_CharT, wchar_t>) {
-        const auto _Cvt = _Convert_wide_to_narrow(code_page::utf8, _Errm);
-        this->_What     = _Cvt.c_str();
+        const auto& _Cvt = _Convert_wide_to_narrow(code_page::utf8, _Errm);
+        _Mywhat          = _Cvt.c_str();
     } else { // const char8_t*, const char16_t* and const char32_t*
-        const auto _Cvt = _Convert_utf_to_narrow<_CharT, char_traits<_CharT>>(_Errm);
-        this->_What     = _Cvt.c_str();
+        const auto& _Cvt = _Convert_utf_to_narrow<_CharT, char_traits<_CharT>>(_Errm);
+        _Mywhat          = _Cvt.c_str();
     }
 }
 
@@ -98,17 +98,17 @@ template _FILESYSTEM_API __cdecl filesystem_error::filesystem_error(const wchar_
 
 // FUNCTION filesystem_error::category
 _NODISCARD const error_type __thiscall filesystem_error::category() const noexcept {
-    return this->_Cat;
+    return _Mycat;
 }
 
 // FUNCTION filesystem_error::source
 _NODISCARD const path& __thiscall filesystem_error::source() const noexcept {
-    return this->_Src;
+    return _Mysrc;
 }
 
 // FUNCTION filesystem_error::what
 _NODISCARD const char* __thiscall filesystem_error::what() const noexcept {
-    return this->_What;
+    return _Mywhat;
 }
 
 // FUNCTION _Throw_fs_error
