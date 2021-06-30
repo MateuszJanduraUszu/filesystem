@@ -75,7 +75,7 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
 
     if ((_Options & copy_options::copy_symlink) == copy_options::copy_symlink && is_symlink(_From)) { // copy _From symbolic link to _To
         // if contains copy_options::replace flag, remove _To, if exists and copy expected, check type
-        if (_CSTD PathIsDirectoryW(_From.generic_wstring().c_str())) {
+        if (_Is_directory(_From)) {
             if ((_Options & copy_options::replace) == copy_options::replace && exists(_To)) {
                 (void) remove_all(_To);
             }
@@ -250,6 +250,10 @@ _NODISCARD bool __cdecl copy_file(const path& _From, const path& _To, const bool
         _Throw_fs_error("file not found", error_type::runtime_error, "copy_file");
     }
 
+    if (_Is_directory(_From)) { // copy_file() is reserved for files onlu
+        _Throw_fs_error("expected file", error_type::runtime_error, "copy_file");
+    }
+
     if (is_empty(_From)) { // nothing to do
         return true;
     }
@@ -325,7 +329,7 @@ _NODISCARD bool __cdecl create_file(const path& _Path, const file_attributes _At
         static_cast<unsigned long>(file_access::all), static_cast<unsigned long>(file_share::all),
         nullptr, static_cast<unsigned long>(file_disposition::only_new), static_cast<unsigned long>(_Attributes), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
+    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle)
         _Throw_fs_error("failed to get handle", error_type::runtime_error, "create_file");
     }
 
@@ -423,8 +427,7 @@ _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink) {
 
 // FUNCTION remove
 _NODISCARD bool __cdecl remove(const path& _Path) { // removes files and directories
-    if (is_directory(_Path) || is_junction(_Path) || _CSTD PathIsDirectoryW(_Path.generic_wstring().c_str()) ?
-        !_CSTD RemoveDirectoryW(_Path.generic_wstring().c_str())
+    if (_Is_directory(_Path) ? !_CSTD RemoveDirectoryW(_Path.generic_wstring().c_str())
         : !_CSTD DeleteFileW(_Path.generic_wstring().c_str())) { // failed to remove target
         _Throw_fs_error("failed to remove target", error_type::runtime_error, "remove");
     }
@@ -434,9 +437,8 @@ _NODISCARD bool __cdecl remove(const path& _Path) { // removes files and directo
 
 // FUNCTION remove_all
 _NODISCARD bool __cdecl remove_all(const path& _Path) { // removes directory with all content
-    if (!is_directory(_Path) && !is_junction(_Path)
-        && !_CSTD PathIsDirectoryW(_Path.generic_wstring().c_str())) { // directory not found
-        _Throw_fs_error("directory not found", error_type::runtime_error, "remove_all");
+    if (!_Is_directory(_Path)) { // remove_all() is reserved for directories only
+        _Throw_fs_error("expected directory", error_type::runtime_error, "remove_all");
     }
 
     if (is_empty(_Path)) { // if empty, remove _Path and don't do anything else
@@ -487,6 +489,7 @@ _NODISCARD bool __cdecl remove_junction(const path& _Target) {
 
     if (!_CSTD DeviceIoControl(_Handle, FSCTL_DELETE_REPARSE_POINT, &_Reparse_buff, 8 /* REPARSE_MOUNTPOINT_HEADER_SIZE */,
         nullptr, 0, &_Bytes, nullptr) || is_junction(_Target)) { // failed to remove junction
+        _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to remove junction", error_type::runtime_error, "remove_junction");
     }
 
@@ -500,6 +503,10 @@ _NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line) { /
         _Throw_fs_error("file not found", error_type::runtime_error, "remove_line");
     }
 
+    if (_Is_directory(_Target)) { // remove_line() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "remove_line");
+    }
+
     const auto& _All      = read_all(_Target);
     const auto& _Count    = _All.size();
     const auto& _Expected = _Count - 1; // count of lines after removed
@@ -509,7 +516,7 @@ _NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line) { /
     }
 
     // Clear _Target and write to him the newest content.
-    // Use resize_file() instead of clear(), because we know that _Target is file.
+    // Use resize_file() instead of clear(), because we know that _Target is a file.
     resize_file(_Target, 0);
 
     for (size_t _Idx = 0; _Idx < _Count; ++_Idx) {

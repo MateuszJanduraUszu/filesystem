@@ -18,18 +18,16 @@ _NODISCARD bool __cdecl clear(const path& _Target) { // if directory, removes ev
     }
 
     if (!is_empty(_Target)) {
-        if (is_directory(_Target) || is_junction(_Target)
-            || _CSTD PathIsDirectoryW(_Target.generic_wstring().c_str())) {
+        if (_Is_directory(_Target)) {
             // don't use remove_all(), because it will remove _Target as well
             const auto _All = directory_data(_Target).total();
 
             for (const auto& _Elem : _All) { // remove one by one if _Target is directory
-                if (_CSTD PathIsDirectoryW(path(_Target + R"(\)" + _Elem).generic_wstring().c_str())
-                    && !is_empty(_Target + R"(\)" + _Elem)) { // non-empty directory
-                    // If we don't check it and directory won't be empty, remove() will throw an exception.
+                if (_Is_directory(_Target + R"(\)" + _Elem) && !is_empty(_Target + R"(\)" + _Elem)) { // non-empty directory
+                    // If we don't check if directory is empty and won't be, remove() will throw an exception.
                     (void) remove_all(_Target + R"(\)" + _Elem);
                 } else { // regular file or empty directory
-                    (void) remove(_Target + R"(\)" + _Elem); // requires full path
+                    (void) remove(_Target + R"(\)" + _Elem);
                 }
             }
 
@@ -55,6 +53,10 @@ _NODISCARD bool __cdecl clear(const path& _Target) { // if directory, removes ev
 
 // FUNCTION lines_count
 _NODISCARD size_t __cdecl lines_count(const path& _Target) { // counts lines in _Target
+    if (_Is_directory(_Target)) { // lines_count() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "lines_count");
+    }
+    
     return read_all(_Target).size();
 }
 
@@ -64,10 +66,14 @@ _NODISCARD vector<path> __cdecl read_all(const path& _Target) { // reads all lin
         _Throw_fs_error("file not found", error_type::runtime_error, "read_all");
     }
 
+    if (_Is_directory(_Target)) { // read_all() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "read_all");
+    }
+
     if (!is_empty(_Target)) {
         ifstream _File;
         vector<path> _All;
-        path::string_type _Single;
+        typename path::string_type _Single;
 
         _File.open(_Target.generic_wstring());
         if (!_File) { // bad file
@@ -98,6 +104,10 @@ _NODISCARD vector<path> __cdecl read_all(const path& _Target) { // reads all lin
 
 // FUNCTION read_back
 _NODISCARD path __cdecl read_back(const path& _Target) { // reads last line in _Target
+    if (_Is_directory(_Target)) { // read_back() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "read_back");
+    }
+    
     if (is_empty(_Target)) {
         return path();
     }
@@ -109,16 +119,20 @@ _NODISCARD path __cdecl read_back(const path& _Target) { // reads last line in _
 // FUNCTION read_first
 _NODISCARD path __cdecl read_front(const path& _Target) { // reads first line in _Target
     if (!exists(_Target)) { // file not found
-        _Throw_fs_error("file not found", error_type::runtime_error, "read_first");
+        _Throw_fs_error("file not found", error_type::runtime_error, "read_front");
+    }
+
+    if (_Is_directory(_Target)) { // read_front() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "read_front");
     }
 
     if (!is_empty(_Target)) {
         ifstream _File;
-        path::string_type _First;
+        typename path::string_type _First;
 
         _File.open(_Target.generic_wstring());
         if (!_File) { // bad file
-            _Throw_fs_error("bad", error_type::runtime_error, "read_first");
+            _Throw_fs_error("bad", error_type::runtime_error, "read_front");
         }
 
         _STD getline(_File, _First);
@@ -131,6 +145,10 @@ _NODISCARD path __cdecl read_front(const path& _Target) { // reads first line in
 
 // FUNCTION read_inside
 _NODISCARD path __cdecl read_inside(const path& _Target, const size_t _Line) { // reads _Line line from _Target
+    if (_Is_directory(_Target)) { // read_inside() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "read_inside");
+    }
+    
     const auto& _All = read_all(_Target);
 
     if (_Line > _All.size() || _Line < 1) { // _Line grater than lines count or less than 1 (count starts from 1)
@@ -146,7 +164,7 @@ _NODISCARD path __cdecl read_junction(const path& _Target) {
         _Throw_fs_error("expected junction", error_type::runtime_error, "read_junction");
     }
 
-    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly | file_access::writeonly), 0, nullptr,
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
@@ -165,6 +183,7 @@ _NODISCARD path __cdecl read_junction(const path& _Target) {
 
     if (!_CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
         &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to read junction
+        _CSTD CloseHandle(_Handle); // close handle even if function will throw an exception
         _Throw_fs_error("failed to read junction", error_type::runtime_error, "read_junction");
     }
 
@@ -190,9 +209,7 @@ _NODISCARD path __cdecl read_symlink(const path& _Target) { // returns full path
         _Throw_fs_error("symbolic link not found", error_type::runtime_error, "read_symlink");
     }
 
-    const auto _Flags = _CSTD PathIsDirectoryW(_Target.generic_wstring().c_str()) ?
-        file_flags::backup_semantics | file_flags::open_reparse_point : file_flags::open_reparse_point;
-
+    const auto _Flags    = _Is_directory(_Target) ? file_flags::backup_semantics | file_flags::open_reparse_point : file_flags::open_reparse_point;
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read), nullptr,
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(_Flags), nullptr);
@@ -211,6 +228,7 @@ _NODISCARD path __cdecl read_symlink(const path& _Target) { // returns full path
 
     if (!_CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
         &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to read symlink
+        _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to read sybmolic link", error_type::runtime_error, "read_symlink");
     }
 
@@ -241,7 +259,7 @@ _NODISCARD bool __cdecl resize_file(const path& _Target, const size_t _Newsize) 
         _Throw_fs_error("file not found", error_type::runtime_error, "resize_file");
     }
 
-    if (_CSTD PathIsDirectoryW(_Target.generic_wstring().c_str())) { // _Target cannot be a directory
+    if (_Is_directory(_Target)) { // resize_file() is reserved for files only
         _Throw_fs_error("expected file", error_type::runtime_error, "resize_file");
     }
 
@@ -259,12 +277,12 @@ _NODISCARD bool __cdecl resize_file(const path& _Target, const size_t _Newsize) 
 
     if (!_CSTD SetFilePointerEx(_Handle, _Large, nullptr, FILE_BEGIN)
         || !_CSTD SetEndOfFile(_Handle)) { // failed to resize file
+        _CSTD CloseHandle(_Handle); // close handle even if function will throw an exception
         _Throw_fs_error("failed to resize file", error_type::runtime_error, "resize_file");
     }
 
     _CSTD CloseHandle(_Handle);
 
-    // if won't throw an exception, will be able to return true
     return true;
 }
 
@@ -274,8 +292,12 @@ _NODISCARD bool __cdecl write_back(const path& _Target, const path& _Writable) {
         _Throw_fs_error("file not found", error_type::runtime_error, "write_back");
     }
 
+    if (_Is_directory(_Target)) { // write_back() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "write_back");
+    }
+
     // without "\n" on first position, _Writable will be added to existing line (if exists)
-    const auto& _Safe = is_empty(_Target) ? _Writable.generic_string() : "\n" + _Writable.generic_string();
+    const auto&& _Safe = is_empty(_Target) ? _Writable.generic_string() : "\n" + _Writable.generic_string();
 
     ofstream _File;	
     _File.open(_Target.generic_string(), ios::ate | ios::in | ios::out); // without ios::in, all content will be removed
@@ -302,6 +324,10 @@ _NODISCARD bool __cdecl write_back(const path& _Target, const path& _Writable) {
 _NODISCARD bool __cdecl write_front(const path& _Target, const path& _Writable) {
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "write_back");
+    }
+
+    if (_Is_directory(_Target)) { // write_front() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "write_back");
     }
 
     // if is empty, write _Writable using write_back() and finish here
@@ -343,6 +369,10 @@ _NODISCARD bool __cdecl write_front(const path& _Target, const path& _Writable) 
 _NODISCARD bool __cdecl write_inside(const path& _Target, const path& _Writable, const size_t  _Line) {
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "write_inside");
+    }
+
+    if (_Is_directory(_Target)) { // write_inside() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "write_inside");
     }
 
     const auto& _All   = read_all(_Target);
@@ -389,6 +419,10 @@ _NODISCARD bool __cdecl write_inside(const path& _Target, const path& _Writable,
 _NODISCARD bool __cdecl write_instead(const path& _Target, const path& _Writable, const size_t _Line) {
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "write_instead");
+    }
+
+    if (_Is_directory(_Target)) { // write_instead() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "write_instead");
     }
 
     auto _All          = read_all(_Target);

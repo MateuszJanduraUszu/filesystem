@@ -162,9 +162,7 @@ void __thiscall directory_data::_Refresh() noexcept {
         _Throw_fs_error("directory not found", error_type::runtime_error, "_Refresh");
     }
 
-    // _Mypath must be directory
-    if (!is_directory(_Mypath) && !is_junction(_Mypath)
-        && !_CSTD PathIsDirectoryW(_Mypath.generic_wstring().c_str())) { // expected directory
+    if (!_Is_directory(_Mypath)) { // _Refresh() is reserved for directories only
         _Throw_fs_error("expected directory", error_type::runtime_error, "_Refresh");
     }
 
@@ -320,7 +318,7 @@ _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permi
         _Throw_fs_error("target is a link", error_type::runtime_error, "change_permissions");
     }
 
-    const auto& _Attr = _Newperms == file_permissions::readonly ? file_attributes::readonly : file_attributes::none;
+    const auto _Attr = _Newperms == file_permissions::readonly ? file_attributes::readonly : file_attributes::none;
     if (_Inc_old) { // in this cast, user adds new attributes to existing
         const_cast<file_attributes&>(_Attr) ^= _Status.attribute();
     }
@@ -356,7 +354,7 @@ _NODISCARD file_time __cdecl creation_time(const path& _Target) {
 
     FILETIME _File_time;
     if (!_CSTD GetFileTime(_Handle, &_File_time, nullptr, nullptr)) { // failed to get file time
-        _CSTD CloseHandle(_Handle); // should be cosed even if function will throw an exception
+        _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to get file time", error_type::runtime_error, "creation_time");
     }
 
@@ -398,6 +396,7 @@ _NODISCARD bool __cdecl equivalent(const path& _Left, const path& _Right) {
 
         if (!_CSTD GetFileInformationByHandleEx(_Handle, FileIdInfo, &_Left_id,
             sizeof(_Left_id))) { // failed to get informations
+            _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
             _Throw_fs_error("failed to get informations", error_type::runtime_error, "equivalent");
         }
         _CSTD CloseHandle(_Handle);
@@ -416,6 +415,7 @@ _NODISCARD bool __cdecl equivalent(const path& _Left, const path& _Right) {
 
         if (!_CSTD GetFileInformationByHandleEx(_Handle, FileIdInfo, &_Right_id,
             sizeof(_Right_id))) { // failed to get informations
+            _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
             _Throw_fs_error("failed to get informations", error_type::runtime_error, "equivalent");
         }
         _CSTD CloseHandle(_Handle);
@@ -430,7 +430,7 @@ _NODISCARD size_t __cdecl file_size(const path& _Target) {
         _Throw_fs_error("file not found", error_type::runtime_error, "file_size");
     }
 
-    if (_CSTD PathIsDirectoryW(_Target.generic_wstring().c_str())) { // file size is only for files
+    if (_Is_directory(_Target)) { // file_size() is only for files
         _Throw_fs_error("expected file", error_type::runtime_error, "file_size");
     }
 
@@ -460,9 +460,8 @@ _NODISCARD bool __cdecl exists(const path& _Target) noexcept {
 // FUNCTION hard_link_count
 _NODISCARD size_t __cdecl hard_link_count(const path& _Target,
     const file_attributes _Attributes, const file_flags _Flags) { // counts hard links to _Target
-    const auto _Attr_or_flags = is_directory(_Target) || is_junction(_Target)
-        || _CSTD PathIsDirectoryW(_Target.generic_wstring().c_str()) ?
-        static_cast<unsigned long>(_Flags) : static_cast<unsigned long>(_Attributes);
+    const auto _Attr_or_flags = _Is_directory(_Target) ? static_cast<unsigned long>(_Flags)
+        : static_cast<unsigned long>(_Attributes);
     
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
@@ -474,6 +473,7 @@ _NODISCARD size_t __cdecl hard_link_count(const path& _Target,
 
     FILE_STANDARD_INFO _Info;
     if (!_CSTD GetFileInformationByHandleEx(_Handle, FileStandardInfo, &_Info, sizeof(_Info))) {
+        _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to get informations", error_type::runtime_error, "hard_link_count");
     }
     
@@ -483,6 +483,15 @@ _NODISCARD size_t __cdecl hard_link_count(const path& _Target,
 
 _NODISCARD size_t __cdecl hard_link_count(const path& _Target) {
     return hard_link_count(_Target, file_attributes::none, file_flags::backup_semantics | file_flags::open_reparse_point);
+}
+
+// FUNCTION _Is_directory
+_NODISCARD bool __cdecl _Is_directory(const file_status _Status) noexcept {
+    return (_Status.attribute() & file_attributes::directory) == file_attributes::directory;
+}
+
+_NODISCARD bool __cdecl _Is_directory(const path& _Target) noexcept {
+    return _Is_directory(file_status(_Target));
 }
 
 // FUNCTION is_directory
@@ -500,8 +509,7 @@ _NODISCARD bool __cdecl is_empty(const path& _Target) {
         _Throw_fs_error("path not found", error_type::runtime_error, "is_empty");
     }
 
-    return {is_directory(_Target) || is_junction(_Target) || _CSTD PathIsDirectoryW(_Target.generic_wstring().c_str())
-        ? _CSTD PathIsDirectoryEmptyW(_Target.generic_wstring().c_str()) == 1 : file_size(_Target) == 0};
+    return _Is_directory(_Target) ? directory_data(_Target).total_count() == 0 : file_size(_Target) == 0;
 }
 
 // FUNCTION is_junction

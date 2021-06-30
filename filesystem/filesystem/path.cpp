@@ -168,7 +168,7 @@ template _FILESYSTEM_API __cdecl path::path(const u32string_view&);
 template _FILESYSTEM_API __cdecl path::path(const wstring_view&);
 
 // FUNCTION path::_Check_size
-void __thiscall path::_Check_size() const {
+constexpr void __thiscall path::_Check_size() const {
     // path cannot be longer than 260 characters
     if (_Mytext.size() > static_cast<size_t>(MAX_PATH)) {
         _Throw_system_error("_Check_size", "invalid length", error_type::length_error);
@@ -410,7 +410,7 @@ template _FILESYSTEM_API bool __cdecl path::operator!=(const u32string_view&) co
 template _FILESYSTEM_API bool __cdecl path::operator!=(const wstring_view&) const;
 
 // FUNCTION path::clear
-void __thiscall path::clear() noexcept {
+constexpr void __thiscall path::clear() noexcept {
     _Mytext.clear();
 }
 
@@ -421,7 +421,7 @@ _NODISCARD path __thiscall path::drive() const noexcept {
 }
 
 // FUNCTION path::empty
-_NODISCARD bool __thiscall path::empty() const noexcept {
+_NODISCARD constexpr bool __thiscall path::empty() const noexcept {
     return _Mytext.empty();
 }
 
@@ -431,10 +431,13 @@ _NODISCARD path __thiscall path::extension() const noexcept {
     return has_extension() ? string_type(_Mytext, _Mytext.find_last_of(".") + 1, _Mytext.size()) : string_type();
 }
 
+// same as string[_view]::npos
+#define _NPOS static_cast<size_t>(-1)
+
 // FUNCTION path::file
 _NODISCARD path __thiscall path::file() const noexcept {
     if (has_file()) { // if has file, then everything after last slash is filename
-        return _Mytext.find(_Expected_slash) != string_type::npos ?
+        return _Mytext.find(_Expected_slash) != _NPOS ?
             string_type(_Mytext, _Mytext.find_last_of(_Expected_slash) + 1, _Mytext.size()) : string_type(_Mytext);
     }
 
@@ -511,9 +514,6 @@ _NODISCARD bool __thiscall path::has_drive() const noexcept {
 
     return false;
 }
-
-// same as string[_view]::npos
-#define _NPOS static_cast<size_t>(-1)
 
 // FUNCTION path::has_extension
 _NODISCARD bool __thiscall path::has_extension() const noexcept {
@@ -638,7 +638,7 @@ _NODISCARD path& __cdecl path::remove_file(const bool _With_slash) noexcept {
         // if path contains only filename, then clear it
         _Mytext.find(_Expected_slash) != _NPOS ?
             _Mytext.resize(_With_slash ? _Mytext.find_last_of(_Expected_slash)
-                : _Mytext.find_last_of(_Expected_slash) + 1) : this->clear();
+                : _Mytext.find_last_of(_Expected_slash) + 1) : clear();
     }
 
     return *this;
@@ -695,6 +695,11 @@ _NODISCARD path __thiscall path::root_path() const noexcept {
     return has_root_directory() ? string_type(_Mytext, _Mytext.find_first_of(_Expected_slash), _Mytext.size()) : string_type();
 }
 
+// FUNCTION path::size
+_NODISCARD constexpr size_t __thiscall path::size() const noexcept {
+    return _Mytext.size();
+}
+
 // FUNCTION path::stem
 _NODISCARD path __thiscall path::stem() const noexcept {
     if (has_stem()) {
@@ -738,7 +743,7 @@ _NODISCARD bool __cdecl current_path(const path& _Path) { // sets new current pa
 }
 
 namespace path_literals {
-    // FUNCTION operator""p
+    // FUNCTION operator""__p
     _NODISCARD path __cdecl operator""__p(const char* const _Str, const size_t _Size) noexcept {
         return path(_Str);
     }

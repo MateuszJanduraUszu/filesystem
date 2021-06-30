@@ -126,8 +126,6 @@ _NODISCARD constexpr _Bitsrc& __cdecl operator^=(_Bitsrc& _Left, const _Bitsrc _
 #include <locale>
 #include <shellapi.h>
 #pragma comment(lib, "Shell32.lib")
-#include <Shlwapi.h>
-#pragma comment(lib, "Shlwapi.lib")
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -317,7 +315,7 @@ public:
     __cdecl path(const _Src& _Source); // all string types
 
 private:
-    void __thiscall _Check_size() const; // verifies path size
+    constexpr void __thiscall _Check_size() const; // verifies path size
 
 public:
     path& __cdecl operator=(const path& _Source);
@@ -371,13 +369,13 @@ public:
 
 public:
     // clears current working path
-    void __thiscall clear() noexcept;
+    constexpr void __thiscall clear() noexcept;
 
     // returns drive from current working path (if has)
     _NODISCARD path __thiscall drive() const noexcept;
 
     // checks if current working path is empty
-    _NODISCARD bool __thiscall empty() const noexcept;
+    _NODISCARD constexpr bool __thiscall empty() const noexcept;
 
     // returns extension from current working path (if has)
     _NODISCARD path __thiscall extension() const noexcept;
@@ -458,6 +456,9 @@ public:
     // returns root path from current working path
     _NODISCARD path __thiscall root_path() const noexcept;
 
+    // returns size of current working path
+    _NODISCARD constexpr size_t __thiscall size() const noexcept;
+
     // returns stem (file name without extension) from current working path (if has)
     _NODISCARD path __thiscall stem() const noexcept;
 
@@ -493,7 +494,7 @@ private:
 };
 
 namespace path_literals {
-    // FUNCTION operator""p
+    // FUNCTION operator""__p
     _FILESYSTEM_API _NODISCARD path __cdecl operator""__p(const char* const _Str, const size_t _Size) noexcept;
     _FILESYSTEM_API _NODISCARD path __cdecl operator""__p(const char8_t* const _Str, const size_t _Size) noexcept;
     _FILESYSTEM_API _NODISCARD path __cdecl operator""__p(const char16_t* const _Str, const size_t _Size) noexcept;
@@ -857,6 +858,11 @@ _FILESYSTEM_API _NODISCARD bool __cdecl exists(const path& _Target) noexcept;
 _FILESYSTEM_API _NODISCARD size_t __cdecl hard_link_count(const path& _Target,
     const file_attributes _Attributes, const file_flags _Flags);
 _FILESYSTEM_API _NODISCARD size_t __cdecl hard_link_count(const path& _Target);
+
+// FUNCTION _Is_directory
+// returns true if _Target is directory/symlink/junction
+_FILESYSTEM_API _NODISCARD bool __cdecl _Is_directory(const file_status _Status) noexcept;
+_FILESYSTEM_API _NODISCARD bool __cdecl _Is_directory(const path& _Target) noexcept;
 
 // FUNCTION is_directory
 _FILESYSTEM_API _NODISCARD bool __cdecl is_directory(const file_status _Status) noexcept;
