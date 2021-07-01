@@ -38,7 +38,7 @@ void __thiscall file_status::_Refresh() noexcept {
     _Update_attribute(static_cast<file_attributes>(_CSTD GetFileAttributesW(_Mypath.generic_wstring().c_str())));
 
     // If _Mypath not found, GetFileAttributeW() will return INVALID_FILE_ATTRIBUTES.
-    // Don't use GetLastError() to check if _Path exists, because some functions
+    // Don't use GetLastError() to check if _Mypath exists, because some functions
     // will return ERROR_PATH_NOT_FOUND and others ERROR_FILE_NOT_FOUND when they cannot find target.
     if (_Myattr == file_attributes::unknown) { // file_attributes::unknown means, that target not found
         _Update_attribute(file_attributes::none);
@@ -79,6 +79,7 @@ void __thiscall file_status::_Refresh() noexcept {
 
         if (!_CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
             &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to get informations
+            _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
             _Throw_fs_error("failed to get informations", error_type::runtime_error, "_Refresh");
         }
         
@@ -458,14 +459,10 @@ _NODISCARD bool __cdecl exists(const path& _Target) noexcept {
 }
 
 // FUNCTION hard_link_count
-_NODISCARD size_t __cdecl hard_link_count(const path& _Target,
-    const file_attributes _Attributes, const file_flags _Flags) { // counts hard links to _Target
-    const auto _Attr_or_flags = _Is_directory(_Target) ? static_cast<unsigned long>(_Flags)
-        : static_cast<unsigned long>(_Attributes);
-    
+_NODISCARD size_t __cdecl hard_link_count(const path& _Target, const file_flags _Flags) { // counts hard links to _Target
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
-        static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
-        nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), _Attr_or_flags, nullptr);
+        static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read), nullptr,
+        static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(_Flags), nullptr);
 
     if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
         _Throw_fs_error("failed to get handle", error_type::runtime_error, "hard_link_count");
@@ -482,7 +479,7 @@ _NODISCARD size_t __cdecl hard_link_count(const path& _Target,
 }
 
 _NODISCARD size_t __cdecl hard_link_count(const path& _Target) {
-    return hard_link_count(_Target, file_attributes::none, file_flags::backup_semantics | file_flags::open_reparse_point);
+    return hard_link_count(_Target, file_flags::backup_semantics | file_flags::open_reparse_point);
 }
 
 // FUNCTION _Is_directory

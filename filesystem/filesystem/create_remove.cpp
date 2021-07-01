@@ -66,7 +66,7 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
     // check for copying links
     if ((_Options & copy_options::copy_junction) == copy_options::copy_junction && is_junction(_From)) { // copy _From junction to _To
         // if contains copy_options::replace flag, remove _To, if exists and copy expected
-        if ((_Options & copy_options::replace) == copy_options::replace) {
+        if ((_Options & copy_options::replace) == copy_options::replace && exists(_To)) {
             (void) remove_all(_To);
         }
         
@@ -275,8 +275,8 @@ _NODISCARD bool __cdecl copy_file(const path& _From, const path& _To, const bool
 
         return true;
     } else { // don't touch old content
-        const auto& _Src(read_all(_From));
-        const auto& _Result(read_all(_To)); // content from _From and _To
+        const auto& _Src    = read_all(_From);
+        const auto& _Result = read_all(_To); // content from _From and _To
         
         const_cast<vector<path>&>(_Result).insert(_Result.end(), _Src.begin(), _Src.end());
 

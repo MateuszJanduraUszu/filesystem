@@ -855,8 +855,7 @@ _FILESYSTEM_API _NODISCARD bool __cdecl exists(const file_status _Status) noexce
 _FILESYSTEM_API _NODISCARD bool __cdecl exists(const path& _Target) noexcept;
 
 // FUNCTION hard_link_count
-_FILESYSTEM_API _NODISCARD size_t __cdecl hard_link_count(const path& _Target,
-    const file_attributes _Attributes, const file_flags _Flags);
+_FILESYSTEM_API _NODISCARD size_t __cdecl hard_link_count(const path& _Target, const file_flags _Flags);
 _FILESYSTEM_API _NODISCARD size_t __cdecl hard_link_count(const path& _Target);
 
 // FUNCTION _Is_directory
