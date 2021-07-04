@@ -450,6 +450,9 @@ public:
     // replaces stem from current working path with replacement (if has stem)
     _NODISCARD path& __cdecl replace_stem(const path& _Replacement);
 
+    // resizes path to _Newsize
+    constexpr void __cdecl resize(const size_t _Newsize, const value_type _Ch = value_type(0));
+
     // returns root directory from current working path (if has)
     _NODISCARD path __thiscall root_directory() const noexcept;
 
@@ -941,6 +944,16 @@ struct _FILESYSTEM_API disk_space final {
 
 // FUNCTION space
 _FILESYSTEM_API _NODISCARD disk_space __cdecl space(const path& _Path);
+
+// FUNCTION status
+_FILESYSTEM_API _NODISCARD file_status __cdecl status(const path& _Target) noexcept;
+
+// FUNCTION status_known
+_FILESYSTEM_API _NODISCARD bool __cdecl status_known(const file_status _Status) noexcept;
+_FILESYSTEM_API _NODISCARD bool __cdecl status_known(const path& _Target) noexcept;
+
+// FUNCTION temp_directory_path
+_FILESYSTEM_API _NODISCARD path __stdcall temp_directory_path();
 
 // FUNCTION write_back
 _FILESYSTEM_API _NODISCARD bool __cdecl write_back(const path& _Target, const path& _Writable);

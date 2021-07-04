@@ -167,54 +167,51 @@ void __thiscall directory_data::_Refresh() noexcept {
         _Throw_fs_error("expected directory", error_type::runtime_error, "_Refresh");
     }
 
-    if (!is_empty(_Mypath)) {
-        WIN32_FIND_DATAW _Data;
-        const HANDLE _Handle = _CSTD FindFirstFileExW(path(_Mypath + LR"(\*)").generic_wstring().c_str(),
-            FindExInfoBasic, &_Data, FindExSearchNameMatch, nullptr, 0);
+    WIN32_FIND_DATAW _Data;
+    const HANDLE _Handle = _CSTD FindFirstFileExW(path(_Mypath + LR"(\*)").generic_wstring().c_str(),
+        FindExInfoBasic, &_Data, FindExSearchNameMatch, nullptr, 0);
 
-        if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-            _Throw_fs_error("failed to get handle", error_type::runtime_error, "_Refresh");
-        }
-
-        vector<path> _All;
-
-        do { // get all types, they will be separated later
-            _All.push_back(static_cast<const wchar_t*>(_Data.cFileName));
-        } while (_CSTD FindNextFileW(_Handle, &_Data));
-        _CSTD FindClose(_Handle);
-
-        _Reset(); // clear everything
-        path _Precise; // creates full path to _All[_Idx]
-
-        for (const auto& _Elem : _All) {
-            if (_Elem != "." && _Elem != "..") { // skip dots
-                _Precise = _Mypath + LR"(\)" + _Elem;
-
-                if (is_directory(_Precise)) { // directory
-                    _Myname[0].push_back(_Elem);
-                } else if (is_junction(_Precise)) { // junction (as directory)
-                    _Myname[1].push_back(_Elem);
-                } else if (is_other(_Precise)) { // other
-                    _Myname[2].push_back(_Elem);
-                } else if (is_regular_file(_Precise)) { // regular file
-                    _Myname[3].push_back(_Elem);
-                } else if (is_symlink(_Precise)) { // symlink (directory or file)
-                    _Myname[4].push_back(_Elem);
-                }
-
-                _Myname[5].push_back(_Elem); // _Myname[5] (total) takes every type
-            }
-        }
-
-        for (size_t _Idx = 0; _Idx < _Myname.size(); ++_Idx) {
-            _Mycount[_Idx] = _Myname[_Idx].size();
-        }
-
-        return; // that's all if _Mypath isn't empty
+    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
+        _Throw_fs_error("failed to get handle", error_type::runtime_error, "_Refresh");
     }
 
-    // if _Mypath is empty, leave variables without value
-    _Reset();
+    vector<path> _All;
+
+    do { // get all types, they will be separated later
+        _All.push_back(static_cast<const wchar_t*>(_Data.cFileName));
+    } while (_CSTD FindNextFileW(_Handle, &_Data));
+    _CSTD FindClose(_Handle);
+
+    _Reset(); // clear everything
+    if (_All.empty()) { // nothing to do if directory is empty
+        return;
+    }
+
+    path _Precise; // creates full path to _All[_Idx]
+
+    for (const auto& _Elem : _All) {
+        if (_Elem != "." && _Elem != "..") { // skip dots
+            _Precise = _Mypath + LR"(\)" + _Elem;
+
+            if (is_directory(_Precise)) { // directory
+                _Myname[0].push_back(_Elem);
+            } else if (is_junction(_Precise)) { // junction (as directory)
+                _Myname[1].push_back(_Elem);
+            } else if (is_other(_Precise)) { // other
+                _Myname[2].push_back(_Elem);
+            } else if (is_regular_file(_Precise)) { // regular file
+                _Myname[3].push_back(_Elem);
+            } else if (is_symlink(_Precise)) { // symlink (directory or file)
+                _Myname[4].push_back(_Elem);
+            }
+
+            _Myname[5].push_back(_Elem); // _Myname[5] (total) takes every type
+        }
+    }
+
+    for (size_t _Idx = 0; _Idx < _Myname.size(); ++_Idx) {
+        _Mycount[_Idx] = _Myname[_Idx].size();
+    }
 }
 
 // FUNCTION directory_data::_Reset
@@ -319,7 +316,7 @@ _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permi
         _Throw_fs_error("target is a link", error_type::runtime_error, "change_permissions");
     }
 
-    const auto _Attr = _Newperms == file_permissions::readonly ? file_attributes::readonly : file_attributes::none;
+    const file_attributes& _Attr = _Newperms == file_permissions::readonly ? file_attributes::readonly : file_attributes::none;
     if (_Inc_old) { // in this cast, user adds new attributes to existing
         const_cast<file_attributes&>(_Attr) ^= _Status.attribute();
     }
@@ -652,6 +649,20 @@ _NODISCARD disk_space __cdecl space(const path& _Target) {
     }
 
     return _Result;
+}
+
+// FUNCTION status
+_NODISCARD file_status __cdecl status(const path& _Target) noexcept {
+    return file_status(_Target);
+}
+
+// FUNCTION status_known
+_NODISCARD bool __cdecl status_known(const file_status _Status) noexcept {
+    return _Status.type() != file_type::none;
+}
+
+_NODISCARD bool __cdecl status_known(const path& _Target) noexcept {
+    return status_known(file_status(_Target));
 }
 _FILESYSTEM_END
 

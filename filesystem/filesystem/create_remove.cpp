@@ -250,7 +250,7 @@ _NODISCARD bool __cdecl copy_file(const path& _From, const path& _To, const bool
         _Throw_fs_error("file not found", error_type::runtime_error, "copy_file");
     }
 
-    if (_Is_directory(_From)) { // copy_file() is reserved for files onlu
+    if (_Is_directory(_From)) { // copy_file() is reserved for files only
         _Throw_fs_error("expected file", error_type::runtime_error, "copy_file");
     }
 
@@ -446,15 +446,25 @@ _NODISCARD bool __cdecl remove_all(const path& _Path) { // removes directory wit
     }
 
     const auto& _Src = _Path.generic_wstring();
+    if (_Src.back() != _Expected_slash) { // must contains slash before null-char
+        const_cast<wstring&>(_Src).push_back(static_cast<wchar_t>(_Expected_slash));
+    }
 
-    // without 0 on last position, SHFileOperationW() won't work correctly
+    // without 0 on last position, SHFileOperationW() may not work correctly
     const_cast<wstring&>(_Src).push_back(L'\0');
 
+    // In this case we use only fFlags, pFrom and wFunc.
+    // Rest are unnecessary and they can have any value, but they must be defined.
+    // Without it SHFileOperationW() will throw an exception.
     SHFILEOPSTRUCTW _Ops;
-    _Ops.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT;
-    _Ops.hwnd   = nullptr; // never used in this case
-    _Ops.pFrom  = _Src.c_str();
-    _Ops.wFunc  = FO_DELETE;
+    _Ops.fAnyOperationsAborted = false;
+    _Ops.fFlags                = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT;
+    _Ops.hNameMappings         = nullptr;
+    _Ops.hwnd                  = nullptr; // never used in this case
+    _Ops.lpszProgressTitle     = nullptr;
+    _Ops.pFrom                 = _Src.c_str();
+    _Ops.pTo                   = nullptr;
+    _Ops.wFunc                 = FO_DELETE;
 
     if (_CSTD SHFileOperationW(&_Ops)) { // failed to remove directory (failed if return value is non-zero)
         _Throw_fs_error("failed to remove directory", error_type::runtime_error, "remove_all");
@@ -517,7 +527,7 @@ _NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line) { /
 
     // Clear _Target and write to him the newest content.
     // Use resize_file() instead of clear(), because we know that _Target is a file.
-    resize_file(_Target, 0);
+    (void) resize_file(_Target, 0);
 
     for (size_t _Idx = 0; _Idx < _Count; ++_Idx) {
         if (_Idx + 1 != _Line) { // skip removed line

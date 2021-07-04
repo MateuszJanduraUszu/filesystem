@@ -682,6 +682,12 @@ _NODISCARD path& __cdecl path::replace_stem(const path& _Replacement) {
     return *this;
 }
 
+// FUNCTION path::resize
+constexpr void __cdecl path::resize(const size_t _Newsize, const value_type _Ch) {
+    _Mytext.resize(_Newsize, _Ch);
+    _Check_size();
+}
+
 // FUNCTION path::root_directory
 _NODISCARD path __thiscall path::root_directory() const noexcept {
     // if has root directory, then return only first directory from root path
@@ -740,6 +746,37 @@ _NODISCARD bool __cdecl current_path(const path& _Path) { // sets new current pa
     }
 
     return true;
+}
+
+// FUNCTION temp_directory_path
+_NODISCARD path __stdcall temp_directory_path() {
+    wchar_t _Buff[MAX_PATH];
+    const unsigned long _Size = _CSTD GetTempPathW(MAX_PATH, _Buff);
+
+    if (_Size == 0) { // for some reasons failed to get temp path
+        _Throw_fs_error("failed to get temporary path", error_type::runtime_error, "temp_directory_path");
+    }
+
+    path _Tmp(static_cast<const wchar_t*>(_Buff));
+    if (_Tmp.generic_string().back() == _Expected_slash) { // unnecessary slash on last position
+        _Tmp.resize(_Tmp.size() - 1);
+    
+        if (!exists(_Tmp)) { // sometimes slash on last position can be important, we should check it
+            _Tmp += R"(\)";
+
+            if (!exists(_Tmp)) { // not found temp directory
+                _Throw_fs_error("temporary directory path not found", error_type::runtime_error, "temp_directory_path");
+            }
+
+            // if won't throw an exception, return will contain slash on last position
+        }
+    }
+
+    if (!_Is_directory(_Tmp)) { // target must be a directory
+        _Throw_fs_error("temporary directory path not found", error_type::runtime_error, "temp_directory_path");
+    }
+
+    return _Tmp;
 }
 
 namespace path_literals {

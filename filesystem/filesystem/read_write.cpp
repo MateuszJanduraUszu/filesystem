@@ -209,10 +209,10 @@ _NODISCARD path __cdecl read_symlink(const path& _Target) { // returns full path
         _Throw_fs_error("symbolic link not found", error_type::runtime_error, "read_symlink");
     }
 
-    const auto _Flags    = _Is_directory(_Target) ? file_flags::backup_semantics | file_flags::open_reparse_point : file_flags::open_reparse_point;
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read), nullptr,
-        static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(_Flags), nullptr);
+        static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
+            file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
     if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
         _Throw_fs_error("failed to get handle", error_type::runtime_error, "read_symlink");
