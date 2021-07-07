@@ -811,14 +811,14 @@ _FILESYSTEM_API _NODISCARD bool __cdecl copy_symlink(const path& _Symlink, const
 // STRUCT file_time
 struct _FILESYSTEM_API file_time final {
     // calendar
-    uint16_t _Year;
-    uint16_t _Month;
-    uint16_t _Day;
+    uint16_t year;
+    uint16_t month;
+    uint16_t day;
 
     // clock
-    uint16_t _Hour;
-    uint16_t _Minute;
-    uint16_t _Second;
+    uint16_t hour;
+    uint16_t minute;
+    uint16_t second;
 };
 
 // FUNCTION creation_data
@@ -937,9 +937,9 @@ _FILESYSTEM_API _NODISCARD bool __cdecl resize_file(const path& _Target, const s
 
 // STRUCT disk_space
 struct _FILESYSTEM_API disk_space final {
-    size_t _Available;
-    size_t _Capacity;
-    size_t _Free;
+    size_t available;
+    size_t capacity;
+    size_t free;
 };
 
 // FUNCTION space

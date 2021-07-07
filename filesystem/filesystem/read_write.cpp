@@ -37,7 +37,7 @@ _NODISCARD bool __cdecl clear(const path& _Target) { // if directory, removes ev
 
             return true;
         } else { // file, symlink or other
-            resize_file(_Target, 0);
+            (void) resize_file(_Target, 0);
 
             if (!is_empty(_Target)) { // failed to clear the file
                 _Throw_fs_error("failed to clear the file", error_type::runtime_error, "clear");

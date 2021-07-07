@@ -639,9 +639,9 @@ _NODISCARD file_time __cdecl last_write_time(const path& _Target) {
 // FUNCTION space
 _NODISCARD disk_space __cdecl space(const path& _Target) {
     disk_space _Result;
-    const auto _Available = reinterpret_cast<PULARGE_INTEGER>(&_Result._Available);
-    const auto _Capacity  = reinterpret_cast<PULARGE_INTEGER>(&_Result._Capacity);
-    const auto _Free      = reinterpret_cast<PULARGE_INTEGER>(&_Result._Free);
+    const auto _Available = reinterpret_cast<PULARGE_INTEGER>(&_Result.available);
+    const auto _Capacity  = reinterpret_cast<PULARGE_INTEGER>(&_Result.capacity);
+    const auto _Free      = reinterpret_cast<PULARGE_INTEGER>(&_Result.free);
 
     if (!_CSTD GetDiskFreeSpaceExW(_Target.generic_wstring().c_str(), _Available,
         _Capacity, _Free)) { // failed to get informations
