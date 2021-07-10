@@ -608,6 +608,9 @@ public:
 
     explicit __cdecl file_status(const path& _Path) noexcept;
 
+    explicit __cdecl file_status(const path& _Target, const file_attributes _Attr,
+        const file_permissions _Perms, const file_type _Type) noexcept;
+
 public:
     // returns attributes to current working path
     _NODISCARD const file_attributes __thiscall attribute() const noexcept;
@@ -850,12 +853,12 @@ struct _FILESYSTEM_API file_id final { // copy of _FILE_ID_INFO
 // FUNCTION equivalent
 _FILESYSTEM_API _NODISCARD bool __cdecl equivalent(const path& _Left, const path& _Right);
 
-// FUNCTION file_size
-_FILESYSTEM_API _NODISCARD size_t __cdecl file_size(const path& _Target);
-
 // FUNCTION exists
 _FILESYSTEM_API _NODISCARD bool __cdecl exists(const file_status _Status) noexcept;
 _FILESYSTEM_API _NODISCARD bool __cdecl exists(const path& _Target) noexcept;
+
+// FUNCTION file_size
+_FILESYSTEM_API _NODISCARD size_t __cdecl file_size(const path& _Target);
 
 // FUNCTION hard_link_count
 _FILESYSTEM_API _NODISCARD size_t __cdecl hard_link_count(const path& _Target, const file_flags _Flags);
@@ -888,6 +891,9 @@ _FILESYSTEM_API _NODISCARD bool __cdecl is_regular_file(const path& _Target) noe
 // FUNCTION is_symlink
 _FILESYSTEM_API _NODISCARD bool __cdecl is_symlink(const file_status _Status) noexcept;
 _FILESYSTEM_API _NODISCARD bool __cdecl is_symlink(const path& _Target) noexcept;
+
+// FUNCTION junction_status
+_FILESYSTEM_API _NODISCARD file_status __cdecl junction_status(const path& _Target) noexcept;
 
 // FUNCTION last_access_time
 _FILESYSTEM_API _NODISCARD file_time __cdecl last_access_time(const path& _Target);
@@ -951,6 +957,9 @@ _FILESYSTEM_API _NODISCARD file_status __cdecl status(const path& _Target) noexc
 // FUNCTION status_known
 _FILESYSTEM_API _NODISCARD bool __cdecl status_known(const file_status _Status) noexcept;
 _FILESYSTEM_API _NODISCARD bool __cdecl status_known(const path& _Target) noexcept;
+
+// FUNCTION symlink_status
+_FILESYSTEM_API _NODISCARD file_status __cdecl symlink_status(const path& _Target) noexcept;
 
 // FUNCTION temp_directory_path
 _FILESYSTEM_API _NODISCARD path __stdcall temp_directory_path();

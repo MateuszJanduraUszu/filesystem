@@ -25,6 +25,9 @@ __cdecl file_status::file_status(const path& _Path) noexcept {
     _Refresh();
 }
 
+__cdecl file_status::file_status(const path& _Target, const file_attributes _Attr, const file_permissions _Perms,
+    const file_type _Type) noexcept : _Mypath(_Target), _Myattr(_Attr), _Myperms(_Perms), _Mytype(_Type) {}
+
 // FUNCTION file_status::_Init
 void __thiscall file_status::_Init() noexcept {
     _Mypath  = path();
@@ -553,6 +556,17 @@ _NODISCARD bool __cdecl is_symlink(const path& _Target) noexcept {
     return is_symlink(file_status(_Target));
 }
 
+// FUNCTION junction_status
+_NODISCARD file_status junction_status(const path& _Target) noexcept {
+    const auto _Status = file_status(_Target);
+
+    // don't use is_junction(), because it will refresh status twice
+    if (_Status.type() != file_type::junction) { // junction_status() is reserved for junctions only
+        return file_status(_Target, file_attributes::unknown, file_permissions::unknown, file_type::not_found);
+    }
+
+    return _Status;
+}
 
 // FUNCTION last_access_time
 _NODISCARD file_time __cdecl last_access_time(const path& _Target) {
@@ -653,7 +667,19 @@ _NODISCARD disk_space __cdecl space(const path& _Target) {
 
 // FUNCTION status
 _NODISCARD file_status __cdecl status(const path& _Target) noexcept {
-    return file_status(_Target);
+    // The status() is reserved for real files/directories,
+    // so if _Target isn't one of them, read symbolic link/junction and return status of real one.
+    const auto _Status{file_status(_Target)};
+
+    if (_Status.type() == file_type::junction) {
+        return file_status(read_junction(_Target));
+    }
+
+    if (_Status.type() == file_type::symlink) {
+        return file_status(read_symlink(_Target));
+    }
+
+    return _Status;
 }
 
 // FUNCTION status_known
@@ -663,6 +689,18 @@ _NODISCARD bool __cdecl status_known(const file_status _Status) noexcept {
 
 _NODISCARD bool __cdecl status_known(const path& _Target) noexcept {
     return status_known(file_status(_Target));
+}
+
+// FUNCTION symlink_status
+_NODISCARD file_status __cdecl symlink_status(const path& _Target) noexcept {
+    const auto _Status = file_status(_Target);
+
+    // don't use is_symlink(), because it will refresh status twice
+    if (_Status.type() != file_type::symlink) { // symlink_status() is reserved for symbolic links only
+        return file_status(_Target, file_attributes::unknown, file_permissions::unknown, file_type::not_found);
+    }
+
+    return _Status;
 }
 _FILESYSTEM_END
 
