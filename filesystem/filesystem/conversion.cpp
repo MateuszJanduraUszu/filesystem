@@ -14,7 +14,7 @@
 
 _FILESYSTEM_BEGIN
 // FUNCTION _Convert_narrow_to_wide
-_NODISCARD wstring __cdecl _Convert_narrow_to_wide(const code_page _Code_page, const string_view _Input) {
+_NODISCARD wstring _Convert_narrow_to_wide(const code_page _Code_page, const string_view _Input) {
     if (!_Input.empty()) {
         if (_Input.size() > static_cast<size_t>(INT_MAX)) {
             _Throw_system_error("_Convert_narrow_to_wide", "invalid length", error_type::length_error);
@@ -24,8 +24,8 @@ _NODISCARD wstring __cdecl _Convert_narrow_to_wide(const code_page _Code_page, c
         const int _Input_size  = static_cast<int>(_Input.size());
         const int _Output_size = _Input_size;
     
-        // MultiByteToWideChar() replaces multi byte to wide characters,
-        // _Output size must be same as _Input size
+        // The MultiByteToWideChar() replaces multi byte to wide characters,
+        // so _Output size must be same as _Input size.
         _Output.resize(_Output_size, L' ');
 
         if (!_CSTD MultiByteToWideChar(static_cast<uint32_t>(_Code_page), MB_ERR_INVALID_CHARS,
@@ -44,7 +44,7 @@ _NODISCARD wstring __cdecl _Convert_narrow_to_wide(const code_page _Code_page, c
 }
 
 // FUNCTION _Convert_wide_to_narrow
-_NODISCARD string __cdecl _Convert_wide_to_narrow(const code_page _Code_page, const wstring_view _Input) {
+_NODISCARD string _Convert_wide_to_narrow(const code_page _Code_page, const wstring_view _Input) {
     if (!_Input.empty()) {
         if (_Input.size() > static_cast<size_t>(INT_MAX)) {
             _Throw_system_error("_Convert_wide_to_narrow", "invalid length", error_type::length_error);
@@ -54,8 +54,8 @@ _NODISCARD string __cdecl _Convert_wide_to_narrow(const code_page _Code_page, co
         const int _Input_size  = static_cast<int>(_Input.size());
         const int _Output_size = _Input_size;
 
-        // WideCharToMultiByte() replaces multi byte to wide characters.
-        // _Output size must be same as _Input size
+        // The WideCharToMultiByte() replaces multi byte to wide characters.
+        // _Output size must be same as _Input size.
         _Output.resize(_Output_size, ' ');
 
         if (!_CSTD WideCharToMultiByte(static_cast<uint32_t>(_Code_page), WC_ERR_INVALID_CHARS,
@@ -76,7 +76,7 @@ _NODISCARD string __cdecl _Convert_wide_to_narrow(const code_page _Code_page, co
 
 // FUNCTION TEMPLATE _Convert_utf_to_wide
 template <class _Elem, class _Traits>
-_NODISCARD string __cdecl _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input) {
+_NODISCARD string _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input) {
     if (!_Input.empty()) {
         if (_Input.size() > static_cast<size_t>(INT_MAX)) {
             _Throw_system_error("_Convert_utf_to_wide", "invalid length", error_type::length_error);
@@ -100,21 +100,21 @@ _NODISCARD string __cdecl _Convert_utf_to_narrow(const basic_string_view<_Elem, 
     return string();
 }
 
-template _FILESYSTEM_API _NODISCARD string __cdecl _Convert_utf_to_narrow(const u8string_view);
-template _FILESYSTEM_API _NODISCARD string __cdecl _Convert_utf_to_narrow(const u16string_view);
-template _FILESYSTEM_API _NODISCARD string __cdecl _Convert_utf_to_narrow(const u32string_view);
+template _FILESYSTEM_API _NODISCARD string _Convert_utf_to_narrow(const u8string_view);
+template _FILESYSTEM_API _NODISCARD string _Convert_utf_to_narrow(const u16string_view);
+template _FILESYSTEM_API _NODISCARD string _Convert_utf_to_narrow(const u32string_view);
 
 // FUNCTION TEMPLATE _Convert_narrow_to_utf
 template <class _Elem, class _Traits, class _Alloc>
-_NODISCARD basic_string<_Elem, _Traits, _Alloc> __cdecl  _Convert_narrow_to_utf(const string_view _Input) {
-    using _Mystr = basic_string<_Elem, _Traits, _Alloc>;
+_NODISCARD basic_string<_Elem, _Traits, _Alloc> _Convert_narrow_to_utf(const string_view _Input) {
+    using _Str_t = basic_string<_Elem, _Traits, _Alloc>;
 
     if (!_Input.empty()) {
         if (_Input.size() > static_cast<size_t>(INT_MAX)) {
             _Throw_system_error("_Convert_narrow_to_utf", "invalid length", error_type::runtime_error);
         }
 
-        _Mystr _Output;
+        _Str_t _Output;
 
         _Output.reserve(_Input.size()); // reserve place for new data
 
@@ -129,12 +129,12 @@ _NODISCARD basic_string<_Elem, _Traits, _Alloc> __cdecl  _Convert_narrow_to_utf(
         return _Output;
     }
 
-    return _Mystr();
+    return _Str_t();
 }
 
-template _FILESYSTEM_API _NODISCARD u8string __cdecl _Convert_narrow_to_utf(const string_view);
-template _FILESYSTEM_API _NODISCARD u16string __cdecl _Convert_narrow_to_utf(const string_view);
-template _FILESYSTEM_API _NODISCARD u32string __cdecl _Convert_narrow_to_utf(const string_view);
+template _FILESYSTEM_API _NODISCARD u8string _Convert_narrow_to_utf(const string_view);
+template _FILESYSTEM_API _NODISCARD u16string _Convert_narrow_to_utf(const string_view);
+template _FILESYSTEM_API _NODISCARD u32string _Convert_narrow_to_utf(const string_view);
 _FILESYSTEM_END
 
 #pragma warning(pop)

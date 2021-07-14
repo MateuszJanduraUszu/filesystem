@@ -12,7 +12,7 @@
 
 _FILESYSTEM_BEGIN
 // FUNCTION copy
-_NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_options _Options) {
+_NODISCARD bool copy(const path& _From, const path& _To, const copy_options _Options) {
     if (!exists(_From)) { // path not found
         _Throw_fs_error("path not found", error_type::runtime_error, "copy");
     }
@@ -23,7 +23,7 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
     }
 
     // _From and _To must be the same type (directory/not directory)
-    if (is_directory(_From) && is_regular_file(_To)) { // cannot copy directory to file
+    if (_Is_directory(_From) && is_regular_file(_To)) { // cannot copy directory to file
         _Throw_fs_error("invalid operation", error_type::invalid_argument, "copy");
     }
 
@@ -240,12 +240,12 @@ _NODISCARD bool __cdecl copy(const path& _From, const path& _To, const copy_opti
     return false;
 }
 
-_NODISCARD bool __cdecl copy(const path& _From, const path& _To) {
+_NODISCARD bool copy(const path& _From, const path& _To) {
     return copy(_From, _To, copy_options::none);
 }
 
 // FUNCTION copy_file
-_NODISCARD bool __cdecl copy_file(const path& _From, const path& _To, const bool _Replace) { // if _Replace is true, clears file
+_NODISCARD bool copy_file(const path& _From, const path& _To, const bool _Replace) { // if _Replace is true, clears file
     if (!exists(_From)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "copy_file");
     }
@@ -293,7 +293,7 @@ _NODISCARD bool __cdecl copy_file(const path& _From, const path& _To, const bool
 }
 
 // FUNCTION copy_junction
-_NODISCARD bool __cdecl copy_junction(const path& _Junction, const path& _Newjunction) {
+_NODISCARD bool copy_junction(const path& _Junction, const path& _Newjunction) {
     if (!is_junction(_Junction)) { // junction not found
         _Throw_fs_error("junction not found", error_type::runtime_error, "copy_junction");
     }
@@ -302,7 +302,7 @@ _NODISCARD bool __cdecl copy_junction(const path& _Junction, const path& _Newjun
 }
 
 // FUNCTION copy_symlink
-_NODISCARD bool __cdecl copy_symlink(const path& _Symlink, const path& _Newsymlink) {
+_NODISCARD bool copy_symlink(const path& _Symlink, const path& _Newsymlink) {
     if (!is_symlink(_Symlink)) { // symbolic link not found
         _Throw_fs_error("symbolic link not found", error_type::runtime_error, "copy_symlink");
     }
@@ -311,7 +311,7 @@ _NODISCARD bool __cdecl copy_symlink(const path& _Symlink, const path& _Newsymli
 }
 
 // FUNCTION create_directory
-_NODISCARD bool __cdecl create_directory(const path& _Path) { // creates new directory
+_NODISCARD bool create_directory(const path& _Path) { // creates new directory
     if (!_CSTD CreateDirectoryW(_Path.generic_wstring().c_str(), nullptr)) { // failed to create directory 
         _Throw_fs_error("failed to create directory", error_type::runtime_error, "create_directory");
     }
@@ -320,7 +320,7 @@ _NODISCARD bool __cdecl create_directory(const path& _Path) { // creates new dir
 }
 
 // FUNCTION create_file
-_NODISCARD bool __cdecl create_file(const path& _Path, const file_attributes _Attributes) {
+_NODISCARD bool create_file(const path& _Path, const file_attributes _Attributes) {
     if (exists(_Path)) { // already exists
         _Throw_fs_error("file already exists", error_type::runtime_error, "create_file");
     }
@@ -342,12 +342,12 @@ _NODISCARD bool __cdecl create_file(const path& _Path, const file_attributes _At
     return true;
 }
 
-_NODISCARD bool __cdecl create_file(const path& _Path) { // creates new file
+_NODISCARD bool create_file(const path& _Path) { // creates new file
     return create_file(_Path, file_attributes::normal);
 }
 
 // FUNCTION create_hard_link
-_NODISCARD bool __cdecl create_hard_link(const path& _To, const path& _Hardlink) { // creates hard link _Hardlink to _To
+_NODISCARD bool create_hard_link(const path& _To, const path& _Hardlink) { // creates hard link _Hardlink to _To
     if (!_CSTD CreateHardLinkW(_Hardlink.generic_wstring().c_str(),
         _To.generic_wstring().c_str(), nullptr)) { // failed to create hard link
         _Throw_fs_error("failed to create hard link", error_type::runtime_error, "create_hard_link");
@@ -359,7 +359,7 @@ _NODISCARD bool __cdecl create_hard_link(const path& _To, const path& _Hardlink)
 #pragma warning(push)
 #pragma warning(disable : 6385) // C6385: reading incorrect data
 // FUNCTION create_junction
-_NODISCARD bool __cdecl create_junction(const path& _To, const path& _Junction) {
+_NODISCARD bool create_junction(const path& _To, const path& _Junction) {
     if (!exists(_To)) { // directory not found
         _Throw_fs_error("directory not found", error_type::runtime_error, "create_junction");
     }
@@ -411,7 +411,7 @@ _NODISCARD bool __cdecl create_junction(const path& _To, const path& _Junction) 
 #pragma warning(pop)
 
 // FUNCTION create_symlink
-_NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags) {
+_NODISCARD bool create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags) {
     if (!_CSTD CreateSymbolicLinkW(_Symlink.generic_wstring().c_str(),
         _To.generic_wstring().c_str(), static_cast<unsigned long>(_Flags))) { // failed to create symbolic link
         _Throw_fs_error("failed to create symlink", error_type::runtime_error, "create_symlink");
@@ -420,13 +420,13 @@ _NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink, co
     return true;
 }
 
-_NODISCARD bool __cdecl create_symlink(const path& _To, const path& _Symlink) {
+_NODISCARD bool create_symlink(const path& _To, const path& _Symlink) {
     return create_symlink(_To, _Symlink, is_directory(_To) ? symlink_flags::directory | symlink_flags::allow_unprivileged
         : symlink_flags::file | symlink_flags::allow_unprivileged);
 }
 
 // FUNCTION remove
-_NODISCARD bool __cdecl remove(const path& _Path) { // removes files and directories
+_NODISCARD bool remove(const path& _Path) { // removes files and directories
     if (_Is_directory(_Path) ? !_CSTD RemoveDirectoryW(_Path.generic_wstring().c_str())
         : !_CSTD DeleteFileW(_Path.generic_wstring().c_str())) { // failed to remove target
         _Throw_fs_error("failed to remove target", error_type::runtime_error, "remove");
@@ -436,7 +436,7 @@ _NODISCARD bool __cdecl remove(const path& _Path) { // removes files and directo
 }
 
 // FUNCTION remove_all
-_NODISCARD bool __cdecl remove_all(const path& _Path) { // removes directory with all content
+_NODISCARD bool remove_all(const path& _Path) { // removes directory with all content
     if (!_Is_directory(_Path)) { // remove_all() is reserved for directories only
         _Throw_fs_error("expected directory", error_type::runtime_error, "remove_all");
     }
@@ -445,7 +445,7 @@ _NODISCARD bool __cdecl remove_all(const path& _Path) { // removes directory wit
         return remove(_Path);
     }
 
-    const auto& _Src = _Path.generic_wstring();
+    const auto& _Src{_Path.generic_wstring()};
     if (_Src.back() != _Expected_slash) { // must contains slash before null-char
         const_cast<wstring&>(_Src).push_back(static_cast<wchar_t>(_Expected_slash));
     }
@@ -475,7 +475,7 @@ _NODISCARD bool __cdecl remove_all(const path& _Path) { // removes directory wit
 }
 
 // FUNCTION remove_junction
-_NODISCARD bool __cdecl remove_junction(const path& _Target) {
+_NODISCARD bool remove_junction(const path& _Target) {
     if (!is_junction(_Target)) { // _Target must be a junction
         _Throw_fs_error("expected junction", error_type::runtime_error, "remove_junction");
     }
@@ -508,7 +508,7 @@ _NODISCARD bool __cdecl remove_junction(const path& _Target) {
 }
 
 // FUNCTION remove_line
-_NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line) { // removes _Line line from _Target
+_NODISCARD bool remove_line(const path& _Target, const uintmax_t _Line) { // removes _Line line from _Target
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "remove_line");
     }
@@ -543,7 +543,7 @@ _NODISCARD bool __cdecl remove_line(const path& _Target, const size_t _Line) { /
 }
 
 // FUNCTION rename
-_NODISCARD bool __cdecl rename(const path& _Old, const path& _New, const rename_options _Flags) { // renames _Old to _New
+_NODISCARD bool rename(const path& _Old, const path& _New, const rename_options _Flags) { // renames _Old to _New
     if (!_CSTD MoveFileExW(_Old.generic_wstring().c_str(), _New.generic_wstring().c_str(),
         static_cast<unsigned long>(_Flags))) { // failed to rename
         _Throw_fs_error("failed to rename", error_type::runtime_error, "rename");
@@ -552,7 +552,7 @@ _NODISCARD bool __cdecl rename(const path& _Old, const path& _New, const rename_
     return true;
 }
 
-_NODISCARD bool __cdecl rename(const path& _Old, const path& _New) {
+_NODISCARD bool rename(const path& _Old, const path& _New) {
     return rename(_Old, _New, rename_options::copy | rename_options::replace);
 }
 _FILESYSTEM_END

@@ -14,22 +14,22 @@
 
 _FILESYSTEM_BEGIN
 // FUNCTION file_status::file_status
-__thiscall file_status::file_status() noexcept {
+file_status::file_status() noexcept {
     _Init();
     _Refresh();
 }
 
-__cdecl file_status::file_status(const path& _Path) noexcept {
+file_status::file_status(const path& _Path) noexcept {
     _Init();
     _Mypath = _Path;
     _Refresh();
 }
 
-__cdecl file_status::file_status(const path& _Target, const file_attributes _Attr, const file_permissions _Perms,
+file_status::file_status(const path& _Target, const file_attributes _Attr, const file_permissions _Perms,
     const file_type _Type) noexcept : _Mypath(_Target), _Myattr(_Attr), _Myperms(_Perms), _Mytype(_Type) {}
 
 // FUNCTION file_status::_Init
-void __thiscall file_status::_Init() noexcept {
+void file_status::_Init() noexcept {
     _Mypath  = path();
     _Myattr  = file_attributes::none;
     _Myperms = file_permissions::none;
@@ -37,8 +37,8 @@ void __thiscall file_status::_Init() noexcept {
 }
 
 // FUNCTION file_status::_Refresh
-void __thiscall file_status::_Refresh() noexcept {
-    _Update_attribute(static_cast<file_attributes>(_CSTD GetFileAttributesW(_Mypath.generic_wstring().c_str())));
+void file_status::_Refresh() noexcept {
+    _Update_attribute(file_attributes{_CSTD GetFileAttributesW(_Mypath.generic_wstring().c_str())});
 
     // If _Mypath not found, GetFileAttributeW() will return INVALID_FILE_ATTRIBUTES.
     // Don't use GetLastError() to check if _Mypath exists, because some functions
@@ -50,7 +50,6 @@ void __thiscall file_status::_Refresh() noexcept {
         return; // don't check anything else
     }
 
-    // check _Mypath attributes
     if ((_Myattr & file_attributes::readonly) == file_attributes::readonly) { // read-only
         _Update_permissions(file_permissions::readonly);
     } else { // full access
@@ -61,7 +60,6 @@ void __thiscall file_status::_Refresh() noexcept {
     // but when we use DeviceIoControl(), we are on lower level, where we can define buffer size etc.
     // It's safer as well, because if _Mypath is bad, there're only execptions from us.
     
-    // checks if _Path is a reparse point, if is check type
     if ((_Myattr & file_attributes::reparse_point) == file_attributes::reparse_point) {
         // In some cases _Refresh() may using more bytes than defaule maximum (16384 bytes).
         // To avoid C6262 warning and potential threat, buffor size is set to 16284 bytes.
@@ -88,7 +86,7 @@ void __thiscall file_status::_Refresh() noexcept {
         
         _CSTD CloseHandle(_Handle);
 
-        if (_Reparse_buff._Reparse_tag == static_cast<unsigned long>(file_reparse_tag::mount_point)) { // junction
+        if (_Reparse_buff._Reparse_tag == static_cast<unsigned long>(file_reparse_tag::mount_point)) {
             _Update_type(file_type::junction);
             return;
         }
@@ -101,57 +99,57 @@ void __thiscall file_status::_Refresh() noexcept {
         // all others are file or directory types
     }
 
-    if ((_Myattr & file_attributes::directory) == file_attributes::directory) { // directory
+    if ((_Myattr & file_attributes::directory) == file_attributes::directory) {
         _Update_type(file_type::directory);
-    } else { // regular file
+    } else {
         _Update_type(file_type::regular);
     }
 }
 
 // FUNCTION file_status::_Update_attribute
-void __cdecl file_status::_Update_attribute(const file_attributes _Newattrib) noexcept {
+void file_status::_Update_attribute(const file_attributes _Newattrib) noexcept {
     _Myattr = _Newattrib;
 }
 
 // FUNCTION file_status::_Update_permissions
-void __cdecl file_status::_Update_permissions(const file_permissions _Newperms) noexcept {
+void file_status::_Update_permissions(const file_permissions _Newperms) noexcept {
     _Myperms = _Newperms;
 }
 
 // FUNCTION file_status::_Update_type
-void __cdecl file_status::_Update_type(const file_type _Newtype) noexcept {
+void file_status::_Update_type(const file_type _Newtype) noexcept {
     _Mytype = _Newtype;
 }
 
 // FUNCTION file_status::attribute
-_NODISCARD const file_attributes __thiscall file_status::attribute() const noexcept {
+_NODISCARD const file_attributes file_status::attribute() const noexcept {
     return _Myattr;
 }
 
 // FUNCTION file_status::permissions
-_NODISCARD const file_permissions __thiscall file_status::permissions() const noexcept {
+_NODISCARD const file_permissions file_status::permissions() const noexcept {
     return _Myperms;
 }
 
 // FUNCTION file_status::type
-_NODISCARD const file_type __thiscall file_status::type() const noexcept {
+_NODISCARD const file_type file_status::type() const noexcept {
     return _Mytype;
 }
 
 // FUNCTION directory_data::directory_data
-__thiscall directory_data::directory_data() noexcept {
+directory_data::directory_data() noexcept {
     _Init();
     _Refresh(); // get the latest informaions
 }
 
-__cdecl directory_data::directory_data(const path& _Path) noexcept {
+directory_data::directory_data(const path& _Path) noexcept {
     _Init();
     _Mypath = _Path; // update current working path
     _Refresh(); // get the latest informaions
 }
 
 // FUNCTION directory_data::_Init
-void __thiscall directory_data::_Init() noexcept {
+void directory_data::_Init() noexcept {
     _Mypath = path();
 
     for (size_t _Idx = 0; _Idx < _Mycount.size(); ++_Idx) {
@@ -161,7 +159,7 @@ void __thiscall directory_data::_Init() noexcept {
 }
 
 // FUNCTION directory_data::_Refresh
-void __thiscall directory_data::_Refresh() noexcept {
+void directory_data::_Refresh() noexcept {
     if (!exists(_Mypath)) { // directory not found
         _Throw_fs_error("directory not found", error_type::runtime_error, "_Refresh");
     }
@@ -218,8 +216,8 @@ void __thiscall directory_data::_Refresh() noexcept {
 }
 
 // FUNCTION directory_data::_Reset
-void __thiscall directory_data::_Reset() noexcept {
-    // _Init() cannot be used here, because removes value from _Path
+void directory_data::_Reset() noexcept {
+    // _Init() cannot be used here, because removes value from _Mypath
     for (size_t _Idx = 0; _Idx < _Mycount.size(); ++_Idx) {
         _Mycount[_Idx] = 0;
         _Myname[_Idx].clear();
@@ -227,67 +225,67 @@ void __thiscall directory_data::_Reset() noexcept {
 }
 
 // FUNCTION directory_data::directories
-_NODISCARD const vector<path>& __thiscall directory_data::directories() const noexcept {
+_NODISCARD const vector<path>& directory_data::directories() const noexcept {
     return _Myname[0];
 }
 
 // FUNCTION directory_data::directories_count
-_NODISCARD const size_t __thiscall directory_data::directories_count() const noexcept {
+_NODISCARD const uintmax_t directory_data::directories_count() const noexcept {
     return _Mycount[0];
 }
 
 // FUNCTION directory_data::junctions
-_NODISCARD const vector<path>& __thiscall directory_data::junctions() const noexcept {
+_NODISCARD const vector<path>& directory_data::junctions() const noexcept {
     return _Myname[1];
 }
 
 // FUNCTION directory_data::junctions_count
-_NODISCARD const size_t __thiscall directory_data::junctions_count() const noexcept {
+_NODISCARD const uintmax_t directory_data::junctions_count() const noexcept {
     return _Mycount[1];
 }
 
 // FUNCTION directory_data::others
-_NODISCARD const vector<path>& __thiscall directory_data::others() const noexcept {
+_NODISCARD const vector<path>& directory_data::others() const noexcept {
     return _Myname[2];
 }
 
 // FUNCTION directory_data::others_count
-_NODISCARD const size_t __thiscall directory_data::others_count() const noexcept {
+_NODISCARD const uintmax_t directory_data::others_count() const noexcept {
     return _Mycount[2];
 }
 
 // FUNCTION directory_data::regular_files
-_NODISCARD const vector<path>& __thiscall directory_data::regular_files() const noexcept {
+_NODISCARD const vector<path>& directory_data::regular_files() const noexcept {
     return _Myname[3];
 }
 
 // FUNCTION directory_data::regular_files_count
-_NODISCARD const size_t __thiscall directory_data::regular_files_count() const noexcept {
+_NODISCARD const uintmax_t directory_data::regular_files_count() const noexcept {
     return _Mycount[3];
 }
 
 // FUNCTION directory_data::symlinks
-_NODISCARD const vector<path>& __thiscall directory_data::symlinks() const noexcept {
+_NODISCARD const vector<path>& directory_data::symlinks() const noexcept {
     return _Myname[4];
 }
 
 // FUNCTION directory_data::symlinks_count
-_NODISCARD const size_t __thiscall directory_data::symlinks_count() const noexcept {
+_NODISCARD const uintmax_t directory_data::symlinks_count() const noexcept {
     return _Mycount[4];
 }
 
 // FUNCTION directory_data::total
-_NODISCARD const vector<path>& __thiscall directory_data::total() const noexcept {
+_NODISCARD const vector<path>& directory_data::total() const noexcept {
     return _Myname[5];
 }
 
 // FUNCTION directory_data::total_count
-_NODISCARD const size_t __thiscall directory_data::total_count() const noexcept {
+_NODISCARD const uintmax_t directory_data::total_count() const noexcept {
     return _Mycount[5];
 }
 
 // FUNCTION change_attributes
-_NODISCARD bool __cdecl change_attributes(const path& _Target, const file_attributes _Newattr) {
+_NODISCARD bool change_attributes(const path& _Target, const file_attributes _Newattr) {
     if (!exists(_Target)) { // file/directory not found
         _Throw_fs_error("path not found", error_type::runtime_error, "change_attributes");
     }
@@ -300,10 +298,8 @@ _NODISCARD bool __cdecl change_attributes(const path& _Target, const file_attrib
     return true;
 }
 
-#pragma warning(push)
-#pragma warning(disable : 4834) // C4834: discard function with [nodiscard] attribute (operator^=())
 // FUNCTION change_permissions
-_NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permissions _Newperms,
+_NODISCARD bool change_permissions(const path& _Target, const file_permissions _Newperms,
     const bool _Inc_old, const bool _Links) { // _Inc_old = include old attributes, _Links = follow links (symlinks and junctions)
     if (!exists(_Target)) { // path not found
         _Throw_fs_error("path not found", error_type::runtime_error, "change_permissions");
@@ -319,7 +315,7 @@ _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permi
         _Throw_fs_error("target is a link", error_type::runtime_error, "change_permissions");
     }
 
-    const file_attributes& _Attr = _Newperms == file_permissions::readonly ? file_attributes::readonly : file_attributes::none;
+    const auto _Attr{_Newperms == file_permissions::readonly ? file_attributes::readonly : file_attributes::none};
     if (_Inc_old) { // in this cast, user adds new attributes to existing
         const_cast<file_attributes&>(_Attr) ^= _Status.attribute();
     }
@@ -332,14 +328,13 @@ _NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permi
 
     return true;
 }
-#pragma warning(pop)
 
-_NODISCARD bool __cdecl change_permissions(const path& _Target, const file_permissions _Newperms) {
+_NODISCARD bool change_permissions(const path& _Target, const file_permissions _Newperms) {
     return change_permissions(_Target, _Newperms, true, true);
 }
 
 // FUNCTION creation_time
-_NODISCARD file_time __cdecl creation_time(const path& _Target) {
+_NODISCARD file_time creation_time(const path& _Target) {
     if (!exists(_Target)) { // file/directory not found
         _Throw_fs_error("path not found", error_type::runtime_error, "creation_time");
     }
@@ -379,7 +374,7 @@ _NODISCARD file_time __cdecl creation_time(const path& _Target) {
 }
 
 // FUNCTION equivalent
-_NODISCARD bool __cdecl equivalent(const path& _Left, const path& _Right) {
+_NODISCARD bool equivalent(const path& _Left, const path& _Right) {
     if (!exists(_Left) || !exists(_Right)) { // path not found
         _Throw_fs_error("path not found", error_type::runtime_error, "equivalent");
     }
@@ -426,7 +421,7 @@ _NODISCARD bool __cdecl equivalent(const path& _Left, const path& _Right) {
 }
 
 // FUNCTION file_size
-_NODISCARD size_t __cdecl file_size(const path& _Target) {
+_NODISCARD size_t file_size(const path& _Target) {
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "file_size");
     }
@@ -443,23 +438,23 @@ _NODISCARD size_t __cdecl file_size(const path& _Target) {
         _Throw_fs_error("failed to get handle", error_type::runtime_error, "file_size");
     }
 
-    const size_t _Size = static_cast<size_t>(_CSTD GetFileSize(_Handle, nullptr));
+    const auto _Size{static_cast<size_t>(_CSTD GetFileSize(_Handle, nullptr))};
     _CSTD CloseHandle(_Handle);
 
     return _Size;
 }
 
 // FUNCTION exists
-_NODISCARD bool __cdecl exists(const file_status _Status) noexcept {
+_NODISCARD bool exists(const file_status _Status) noexcept {
     return _Status.type() != file_type::none && _Status.type() != file_type::not_found;
 }
 
-_NODISCARD bool __cdecl exists(const path& _Target) noexcept {
+_NODISCARD bool exists(const path& _Target) noexcept {
     return exists(file_status(_Target));
 }
 
 // FUNCTION hard_link_count
-_NODISCARD size_t __cdecl hard_link_count(const path& _Target, const file_flags _Flags) { // counts hard links to _Target
+_NODISCARD uintmax_t hard_link_count(const path& _Target, const file_flags _Flags) { // counts hard links to _Target
     const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read), nullptr,
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(_Flags), nullptr);
@@ -475,33 +470,33 @@ _NODISCARD size_t __cdecl hard_link_count(const path& _Target, const file_flags 
     }
     
     _CSTD CloseHandle(_Handle);
-    return static_cast<size_t>(_Info.NumberOfLinks);
+    return static_cast<uintmax_t>(_Info.NumberOfLinks);
 }
 
-_NODISCARD size_t __cdecl hard_link_count(const path& _Target) {
+_NODISCARD uintmax_t hard_link_count(const path& _Target) {
     return hard_link_count(_Target, file_flags::backup_semantics | file_flags::open_reparse_point);
 }
 
 // FUNCTION _Is_directory
-_NODISCARD bool __cdecl _Is_directory(const file_status _Status) noexcept {
+_NODISCARD bool _Is_directory(const file_status _Status) noexcept {
     return (_Status.attribute() & file_attributes::directory) == file_attributes::directory;
 }
 
-_NODISCARD bool __cdecl _Is_directory(const path& _Target) noexcept {
+_NODISCARD bool _Is_directory(const path& _Target) noexcept {
     return _Is_directory(file_status(_Target));
 }
 
 // FUNCTION is_directory
-_NODISCARD bool __cdecl is_directory(const file_status _Status) noexcept {
+_NODISCARD bool is_directory(const file_status _Status) noexcept {
     return _Status.type() == file_type::directory;
 }
 
-_NODISCARD bool __cdecl is_directory(const path& _Target) noexcept {
+_NODISCARD bool is_directory(const path& _Target) noexcept {
     return is_directory(file_status(_Target));
 }
 
 // FUNCTION is_empty
-_NODISCARD bool __cdecl is_empty(const path& _Target) {
+_NODISCARD bool is_empty(const path& _Target) {
     if (!exists(_Target)) { // path not found
         _Throw_fs_error("path not found", error_type::runtime_error, "is_empty");
     }
@@ -510,16 +505,16 @@ _NODISCARD bool __cdecl is_empty(const path& _Target) {
 }
 
 // FUNCTION is_junction
-_NODISCARD bool __cdecl is_junction(const file_status _Status) noexcept {
+_NODISCARD bool is_junction(const file_status _Status) noexcept {
     return _Status.type() == file_type::junction;
 }
 
-_NODISCARD bool __cdecl is_junction(const path& _Target) noexcept {
+_NODISCARD bool is_junction(const path& _Target) noexcept {
     return is_junction(file_status(_Target));
 }
 
 // FUNCTION is_other
-_NODISCARD bool __cdecl is_other(const file_status _Status) noexcept {
+_NODISCARD bool is_other(const file_status _Status) noexcept {
     switch (_Status.type()) {
     case file_type::none:
     case file_type::not_found:
@@ -534,31 +529,31 @@ _NODISCARD bool __cdecl is_other(const file_status _Status) noexcept {
     }
 }
 
-_NODISCARD bool __cdecl is_other(const path& _Target) noexcept {
+_NODISCARD bool is_other(const path& _Target) noexcept {
     return is_other(file_status(_Target));
 }
  
 // FUNCTION is_regular_file
-_NODISCARD bool __cdecl is_regular_file(const file_status _Status) noexcept { 
+_NODISCARD bool is_regular_file(const file_status _Status) noexcept { 
     return _Status.type() == file_type::regular;
 }
 
-_NODISCARD bool __cdecl is_regular_file(const path& _Target) noexcept { 
+_NODISCARD bool is_regular_file(const path& _Target) noexcept { 
     return is_regular_file(file_status(_Target));
 }
 
 // FUNCTION is_symlink
-_NODISCARD bool __cdecl is_symlink(const file_status _Status) noexcept {
+_NODISCARD bool is_symlink(const file_status _Status) noexcept {
     return _Status.type() == file_type::symlink;
 }
 
-_NODISCARD bool __cdecl is_symlink(const path& _Target) noexcept {
+_NODISCARD bool is_symlink(const path& _Target) noexcept {
     return is_symlink(file_status(_Target));
 }
 
 // FUNCTION junction_status
 _NODISCARD file_status junction_status(const path& _Target) noexcept {
-    const auto _Status = file_status(_Target);
+    const auto _Status{file_status(_Target)};
 
     // don't use is_junction(), because it will refresh status twice
     if (_Status.type() != file_type::junction) { // junction_status() is reserved for junctions only
@@ -569,7 +564,7 @@ _NODISCARD file_status junction_status(const path& _Target) noexcept {
 }
 
 // FUNCTION last_access_time
-_NODISCARD file_time __cdecl last_access_time(const path& _Target) {
+_NODISCARD file_time last_access_time(const path& _Target) {
     if (!exists(_Target)) { // file/directory not found
         _Throw_fs_error("path not found", error_type::runtime_error, "last_access_time");
     }
@@ -610,7 +605,7 @@ _NODISCARD file_time __cdecl last_access_time(const path& _Target) {
 }
 
 // FUNCTION last_write_time
-_NODISCARD file_time __cdecl last_write_time(const path& _Target) {
+_NODISCARD file_time last_write_time(const path& _Target) {
     if (!exists(_Target)) { // file/directory not found
         _Throw_fs_error("path not found", error_type::runtime_error, "last_write_time");
     }
@@ -651,7 +646,7 @@ _NODISCARD file_time __cdecl last_write_time(const path& _Target) {
 }
 
 // FUNCTION space
-_NODISCARD disk_space __cdecl space(const path& _Target) {
+_NODISCARD disk_space space(const path& _Target) {
     disk_space _Result;
     const auto _Available = reinterpret_cast<PULARGE_INTEGER>(&_Result.available);
     const auto _Capacity  = reinterpret_cast<PULARGE_INTEGER>(&_Result.capacity);
@@ -666,7 +661,7 @@ _NODISCARD disk_space __cdecl space(const path& _Target) {
 }
 
 // FUNCTION status
-_NODISCARD file_status __cdecl status(const path& _Target) noexcept {
+_NODISCARD file_status status(const path& _Target) noexcept {
     // The status() is reserved for real files/directories,
     // so if _Target isn't one of them, read symbolic link/junction and return status of real one.
     const auto _Status{file_status(_Target)};
@@ -683,17 +678,17 @@ _NODISCARD file_status __cdecl status(const path& _Target) noexcept {
 }
 
 // FUNCTION status_known
-_NODISCARD bool __cdecl status_known(const file_status _Status) noexcept {
+_NODISCARD bool status_known(const file_status _Status) noexcept {
     return _Status.type() != file_type::none;
 }
 
-_NODISCARD bool __cdecl status_known(const path& _Target) noexcept {
+_NODISCARD bool status_known(const path& _Target) noexcept {
     return status_known(file_status(_Target));
 }
 
 // FUNCTION symlink_status
-_NODISCARD file_status __cdecl symlink_status(const path& _Target) noexcept {
-    const auto _Status = file_status(_Target);
+_NODISCARD file_status symlink_status(const path& _Target) noexcept {
+    const auto _Status{file_status(_Target)};
 
     // don't use is_symlink(), because it will refresh status twice
     if (_Status.type() != file_type::symlink) { // symlink_status() is reserved for symbolic links only
