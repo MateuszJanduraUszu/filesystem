@@ -17,23 +17,13 @@
 #define _HAS_WINDOWS 0
 #endif // _WIN32
 
-// deprecated content
-#ifndef _DEPRECATED
-#define _DEPRECATED(_Depr) __declspec(deprecated("The " #_Depr " will be removed soon. Try to avoid using it."))
-#endif // _DEPRECATED
-
-#ifndef _DEPRECATED_WITH_REPLACEMENT
-#define _DEPRECATED_WITH_REPLACEMENT(_Depr, _Repl) __declspec(deprecated("The " #_Depr " will be removed soon. " \
-    "Use " #_Repl " instead of it."))
-#endif // _DEPRECATED_WITH_REPLACEMENT
-
 // filesystem api
 #ifndef _FILESYSTEM_API
-#ifdef _FILESYSTEM_EXPORT
+#ifdef FILESYSTEM_EXPORTS
 #define _FILESYSTEM_API __declspec(dllexport)
-#else // ^^^ _FILESYSTEM_EXPORT ^^^ / vvv _FILESYSTEM_EXPORT vvv
+#else // ^^^ FILESYSTEM_EXPORTS ^^^ / vvv !FILESYSTEM_EXPORTS vvv
 #define _FILESYSTEM_API __declspec(dllimport)
-#endif // _FILESYSTEM_EXPORT
+#endif // FILESYSTEM_EXPORTS
 #endif // _FILESYSTEM_API
 
 // attributes
@@ -116,7 +106,7 @@ constexpr _Bitsrc& operator^=(_Bitsrc& _Left, const _Bitsrc _Right) noexcept {  
 #else // ^^^ !_HAS_WINDOWS ^^^ / vvv _HAS_WINDOWS vvv
 #pragma warning(push)
 #pragma warning(disable : 4996) // C4996: using deprecated content
-#pragma warning(disable : 4251) // C4251: requires dll library
+#pragma warning(disable : 4251) // C4251: some STL classes requires dll library
 
 #include <array>
 #include <codecvt>
@@ -189,63 +179,26 @@ _FILESYSTEM_BEGIN
 inline constexpr char _Expected_slash   = '\\';
 inline constexpr char _Unexpected_slash = '/'; // default on Linux
 
-// CONSTANT _Is_CharT
-template <class>
-inline constexpr bool _Is_CharT = false;
+// CONSTANT _Is_char_t
+template <class _Ty>
+inline constexpr bool _Is_char_t = _STD _Is_any_of_v<_Ty, char, char8_t, char16_t, char32_t, wchar_t>;
 
-template <>
-inline constexpr bool _Is_CharT<char> = true;
-template <>
-inline constexpr bool _Is_CharT<char8_t> = true;
-template <>
-inline constexpr bool _Is_CharT<char16_t> = true;
-template <>
-inline constexpr bool _Is_CharT<char32_t> = true;
-template <>
-inline constexpr bool _Is_CharT<wchar_t> = true;
+// CONSTANT _Is_narrow_char_t
+template <class _Ty>
+inline constexpr bool _Is_narrow_char_t = _STD is_same_v<_Ty, char>;
 
-// CLASS path
-class path;
+// CONSTANT _Is_src_t
+template <class _Ty>
+inline constexpr bool _Is_src_t = _STD _Is_any_of_v<_Ty, string, u8string, u16string, u32string, wstring,
+    string_view, u8string_view, u16string_view, u32string_view, wstring_view>;
 
-// CONSTANT _Is_Src
-template <class>
-inline constexpr bool _Is_Src = false;
+// CONSTANT _Is_narrow_src_t
+template <class _Ty>
+inline constexpr bool _Is_narrow_src_t = _STD _Is_any_of_v<_Ty, string, string_view>;
 
-template <>
-inline constexpr bool _Is_Src<path> = false; // to avoid errors in copy constructors, in path
-
-template <>
-inline constexpr bool _Is_Src<string> = true;
-template <>
-inline constexpr bool _Is_Src<u8string> = true;
-template <>
-inline constexpr bool _Is_Src<u16string> = true;
-template <>
-inline constexpr bool _Is_Src<u32string> = true;
-template <>
-inline constexpr bool _Is_Src<wstring> = true;
-
-// CONSTANT _Is_SrcView
-template <class>
-inline constexpr bool _Is_SrcView = false;
-
-template <>
-inline constexpr bool _Is_SrcView<path> = false; // to avoid errors in copy constructors, in path
-
-template <>
-inline constexpr bool _Is_SrcView<string_view> = true;
-template <>
-inline constexpr bool _Is_SrcView<u8string_view> = true;
-template <>
-inline constexpr bool _Is_SrcView<u16string_view> = true;
-template <>
-inline constexpr bool _Is_SrcView<u32string_view> = true;
-template <>
-inline constexpr bool _Is_SrcView<wstring_view> = true;
-
-#ifndef MAX_PATH
-#define MAX_PATH 260
-#endif // MAX_PATH
+#ifndef _MAX_PATH
+#define _MAX_PATH 260
+#endif // _MAX_PATH
 
 // ENUM CLASS error_type
 enum class error_type : unsigned int { // error type for _Throw_system_error
@@ -271,18 +224,25 @@ _FILESYSTEM_API _NODISCARD string _Convert_wide_to_narrow(const code_page _Code_
 
 // FUNCTION TEMPLATE _Convert_utf_to_wide
 template <class _Elem, class _Traits = char_traits<_Elem>>
-_FILESYSTEM_API _NODISCARD string _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input);
+_FILESYSTEM_API _NODISCARD string _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input) noexcept(_Is_narrow_char_t<_Elem>);
 
 // FUNCTION TEMPLATE _Convert_narrow_to_utf
 template <class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
-_FILESYSTEM_API _NODISCARD basic_string<_Elem, _Traits, _Alloc> _Convert_narrow_to_utf(const string_view _Input);
+_FILESYSTEM_API _NODISCARD basic_string<_Elem, _Traits, _Alloc> _Convert_narrow_to_utf(const string_view _Input) noexcept(_Is_narrow_char_t<_Elem>);
+
+// FUNCTION TEMPLATE _Convert_to_narrow
+template <class _Elem, class _Traits = char_traits<_Elem>>
+_FILESYSTEM_API _NODISCARD string _Convert_to_narrow(const basic_string_view<_Elem, _Traits> _Input) noexcept(_Is_narrow_char_t<_Elem>);
+
+// PREDEFINED CLASS path
+class path;
 
 // FUNCTION TEMPLATE operator>>
-template <class _Elem, class _Traits>
+template <class _Elem, class _Traits = char_traits<_Elem>>
 _FILESYSTEM_API _NODISCARD basic_istream<_Elem, _Traits>& operator>>(basic_istream<_Elem, _Traits>&, path&);
 
 // FUNCTION TEMPLATE operator<<
-template <class _Elem, class _Traits>
+template <class _Elem, class _Traits = char_traits<_Elem>>
 _FILESYSTEM_API _NODISCARD basic_ostream<_Elem, _Traits>& operator<<(basic_ostream<_Elem, _Traits>&, const path&);
 
 // FUNCTION TEMPLATE operator+
@@ -291,9 +251,9 @@ template <class _CharTy>
 _FILESYSTEM_API _NODISCARD path operator+(const path&, const _CharTy* const);
 template <class _CharTy>
 _FILESYSTEM_API _NODISCARD path operator+(const _CharTy* const, const path&);
-template <class _Elem, class _Traits, class _Alloc>
+template <class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
 _FILESYSTEM_API _NODISCARD path operator+(const path&, const basic_string<_Elem, _Traits, _Alloc>&);
-template <class _Elem, class _Traits, class _Alloc>
+template <class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
 _FILESYSTEM_API _NODISCARD path operator+(const basic_string<_Elem, _Traits, _Alloc>&, const path&);
 
 // CLASS path
@@ -307,10 +267,10 @@ public:
     path(path&&)      = default;
     virtual ~path()   = default;
 
-    template <class _CharTy, class = enable_if<_Is_CharT<_CharTy>, void>>
+    template <class _CharTy>
     path(const _CharTy* const _Source); // all character types
 
-    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src>
     path(const _Src& _Source); // all string types
 
 private:
@@ -320,53 +280,49 @@ public:
     path& operator=(const path& _Source);
     path& assign(const path& _Source);
 
-    template <class _CharTy, class = enable_if<_Is_CharT<_CharTy>, void>>
+    template <class _CharTy>
     path& operator=(const _CharTy* const _Source); // all character types
 
-    template <class _CharTy, class = enable_if<_Is_CharT<_CharTy>, void>>
+    template <class _CharTy>
     path& assign(const _CharTy* const _Source); // all character types
 
-    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src>
     path& operator=(const _Src& _Source); // all string types
 
-    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src>
     path& assign(const _Src& _Source); // all string types
 
-public:
     path& operator+=(const path& _Added);
     path& append(const path& _Added);
 
-    template <class _CharTy, class = enable_if<_Is_CharT<_CharTy>, void>>
+    template <class _CharTy>
     path& operator+=(const _CharTy* const _Added); // all character types
 
-    template <class _CharTy, class = enable_if<_Is_CharT<_CharTy>, void>>
+    template <class _CharTy>
     path& append(const _CharTy* const _Added); // all character types
 
-    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src>
     path& operator+=(const _Src& _Added); // all string types
 
-    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src>
     path& append(const _Src& _Added); // all string types
 
-public:
     bool operator==(const path& _Compare) const noexcept;
 
-    template <class _CharTy, class = enable_if<_Is_CharT<_CharTy>, void>>
+    template <class _CharTy>
     bool operator==(const _CharTy* const _Compare) const;
 
-    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src>
     bool operator==(const _Src& _Compare) const;
 
-public:
     bool operator!=(const path& _Compare) const noexcept;
 
-    template <class _CharTy, class = enable_if<_Is_CharT<_CharTy>, void>>
+    template <class _CharTy>
     bool operator!=(const _CharTy* const _Compare) const;
 
-    template <class _Src, class = enable_if<_Is_Src<_Src> || _Is_SrcView<_Src>, void>>
+    template <class _Src>
     bool operator!=(const _Src& _Compare) const;
 
-public:
     // clears current working path
     constexpr void clear() noexcept;
 
@@ -390,16 +346,16 @@ public:
     _NODISCARD const string generic_string() const noexcept;
 
     // returns current working path as u8string
-    _NODISCARD const u8string generic_u8string() const noexcept;
+    _NODISCARD const u8string generic_u8string() const;
 
     // returns current working path as u16string
-    _NODISCARD const u16string generic_u16string() const noexcept;
+    _NODISCARD const u16string generic_u16string() const;
 
     // returns current working path as u32string
-    _NODISCARD const u32string generic_u32string() const noexcept;
+    _NODISCARD const u32string generic_u32string() const;
 
     // returns current working path as wstring
-    _NODISCARD const wstring generic_wstring() const noexcept;
+    _NODISCARD const wstring generic_wstring() const;
 
     // checks if current working path has drive
     _NODISCARD bool has_drive() const noexcept;
@@ -471,18 +427,18 @@ private:
 // CLASS filesystem_error
 class _FILESYSTEM_API filesystem_error { // base of all filesystem errors
 public:
-    filesystem_error() noexcept : _Mysrc(path{}), _Mycat(error_type{}), _Mywhat(nullptr) {}
+    filesystem_error() noexcept;
+    virtual ~filesystem_error() noexcept;
 
-    template <class _CharTy, class = enable_if<_Is_CharT<_CharTy>, void>>
-    filesystem_error(const _CharTy* const _Errm);
+    template <class _CharTy>
+    filesystem_error(const _CharTy* const _Errm) noexcept(_Is_narrow_char_t<_CharTy>);
 
-    template <class _CharTy, class = enable_if<_Is_CharT<_CharTy>, void>>
-    filesystem_error(const _CharTy* const _Errm, const error_type _Errc);
+    template <class _CharTy>
+    filesystem_error(const _CharTy* const _Errm, const error_type _Errc) noexcept(_Is_narrow_char_t<_CharTy>);
 
-    template <class _CharTy, class = enable_if<_Is_CharT<_CharTy>, void>>
-    filesystem_error(const _CharTy* const _Errm, const error_type _Errc, const path& _Errpos);
+    template <class _CharTy>
+    filesystem_error(const _CharTy* const _Errm, const error_type _Errc, const path& _Errpos) noexcept(_Is_narrow_char_t<_CharTy>);
 
-public:
     _NODISCARD const error_type category() const noexcept; // error category
 
     _NODISCARD const path& source() const noexcept; // error source
@@ -511,6 +467,38 @@ namespace path_literals {
 _FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Errm);
 _FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Errm, const error_type _Errc);
 _FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Errm, const error_type _Errc, const path& _Errpos);
+
+// verification macros
+#ifndef _FILESYSTEM_VERIFY
+#define _FILESYSTEM_VERIFY(_Cond, _Msg, _Err)                                \
+    do {                                                                     \
+        if (_Cond) {                                                         \
+            /* nothing to do */                                              \
+        } else {                                                             \
+            _Throw_fs_error(_Msg, _Err, static_cast<const char*>(__func__)); \
+        }                                                                    \
+    } while (false);
+#endif // _FILESYSTEM_VERIFY
+
+#ifndef _FILESYSTEM_VERIFY_FILE_STREAM
+#define _FILESYSTEM_VERIFY_FILE_STREAM(_Stream)                                                         \
+    do {                                                                                                \
+        if (_Stream) {                                                                                  \
+            /* nothing to do */                                                                         \
+        } else {                                                                                        \
+            if (_Stream.is_open()) {                                                                    \
+                _Stream.close();                                                                        \
+            }                                                                                           \
+                                                                                                        \
+            _Throw_fs_error("bad file", error_type::runtime_error, static_cast<const char*>(__func__)); \
+        }                                                                                               \
+    } while (false);
+#endif // _FILESYSTEM_VERIFY_FILE_STREAM
+
+#ifndef _FILESYSTEM_VERIFY_HANDLE
+#define _FILESYSTEM_VERIFY_HANDLE(_Handle) \
+    _FILESYSTEM_VERIFY(_Handle != INVALID_HANDLE_VALUE, "failed to get handle", error_type::runtime_error)
+#endif // _FILESYSTEM_VERIFY_HANDLE
 
 // FUNCTION current_path
 _FILESYSTEM_API _NODISCARD path current_path() noexcept;
@@ -612,8 +600,6 @@ public:
 
     explicit file_status(const path& _Target, const file_attributes _Attr,
         const file_permissions _Perms, const file_type _Type) noexcept;
-
-public:
     // returns attributes to current working path
     _NODISCARD const file_attributes attribute() const noexcept;
 
@@ -676,7 +662,6 @@ public:
 
     explicit directory_data(const path& _Path) noexcept;
 
-public:
     // returns names of directories inside _Path
     _NODISCARD const vector<path>& directories() const noexcept;
 
@@ -906,17 +891,21 @@ _FILESYSTEM_API _NODISCARD file_time last_write_time(const path& _Target);
 // FUNCTION lines_count
 _FILESYSTEM_API _NODISCARD uintmax_t lines_count(const path& _Target);
 
+// Functions that reads content from file (read_all(), read_back(), read_front() and read_inside())
+// are using string as return type. Don't use path because it accepts only 260 characters.
+// If you want to use they in other basic_string return type, just use _Convert_narrow_to_wide() or _Convert_narrow_to_utf().
+
 // FUNCTION read_all
-_FILESYSTEM_API _NODISCARD vector<path> read_all(const path& _Target);
+_FILESYSTEM_API _NODISCARD vector<string> read_all(const path& _Target);
 
 // FUNCTION read_back
-_FILESYSTEM_API _NODISCARD path read_back(const path& _Target);
+_FILESYSTEM_API _NODISCARD string read_back(const path& _Target);
 
 // FUNCTION read_front
-_FILESYSTEM_API _NODISCARD path read_front(const path& _Target);
+_FILESYSTEM_API _NODISCARD string read_front(const path& _Target);
 
 // FUNCTION read_inside
-_FILESYSTEM_API _NODISCARD path read_inside(const path& _Target, const uintmax_t _Line);
+_FILESYSTEM_API _NODISCARD string read_inside(const path& _Target, const uintmax_t _Line);
 
 // FUNCTION read_junction
 _FILESYSTEM_API _NODISCARD path read_junction(const path& _Target);
@@ -966,17 +955,21 @@ _FILESYSTEM_API _NODISCARD file_status symlink_status(const path& _Target) noexc
 // FUNCTION temp_directory_path
 _FILESYSTEM_API _NODISCARD path temp_directory_path();
 
-// FUNCTION write_back
-_FILESYSTEM_API _NODISCARD bool write_back(const path& _Target, const path& _Writable);
+// FUNCTION TEMPLATE write_back
+template <class _CharTy>
+_FILESYSTEM_API _NODISCARD bool write_back(const path& _Target, const _CharTy* const _Writable);
 
-// FUNCTION write_front
-_FILESYSTEM_API _NODISCARD bool write_front(const path& _Target, const path& _Writable);
+// FUNCTION TEMPLATE write_front
+template <class _CharTy>
+_FILESYSTEM_API _NODISCARD bool write_front(const path& _Target, const _CharTy* const _Writable);
 
-// FUNCTION write_inside
-_FILESYSTEM_API _NODISCARD bool write_inside(const path& _Target, const path& _Writable, const uintmax_t _Line);
+// FUNCTION TEMPLATE write_inside
+template <class _CharTy>
+_FILESYSTEM_API _NODISCARD bool write_inside(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line);
 
-// FUNCTION write_instead
-_FILESYSTEM_API _NODISCARD bool write_instead(const path& _Target, const path& _Writable, const uintmax_t _Line);
+// FUNCTION TEMPLATE write_instead
+template <class _CharTy>
+_FILESYSTEM_API _NODISCARD bool write_instead(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line);
 _FILESYSTEM_END
 
 #pragma warning(pop)

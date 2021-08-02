@@ -3,7 +3,7 @@
 // Copyright (c) Mateusz Jandura. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-#include <pch.h>
+#include <filesystem_pch.hpp>
 #include <filesystem.hpp>
 
 #if !_HAS_WINDOWS
@@ -12,7 +12,7 @@
 
 _FILESYSTEM_BEGIN
 // FUNCTION TEMPLATE operator>>
-template <class _Elem, class _Traits = char_traits<_Elem>>
+template <class _Elem, class _Traits>
 _NODISCARD basic_istream<_Elem, _Traits>& operator>>(basic_istream<_Elem, _Traits>& _Stream, path& _Path) {
     basic_string<_Elem, _Traits, allocator<_Elem>> _Input;
     _Stream >> _Input;
@@ -24,7 +24,7 @@ template _FILESYSTEM_API _NODISCARD istream& operator>>(istream&, path&);
 template _FILESYSTEM_API _NODISCARD wistream& operator>>(wistream&, path&);
 
 // FUNCTION TEMPLATE operator<<
-template <class _Elem, class _Traits = char_traits<_Elem>>
+template <class _Elem, class _Traits>
 _NODISCARD basic_ostream<_Elem, _Traits>& operator<<(basic_ostream<_Elem, _Traits>& _Stream, const path& _Path) {
     // current C++ standard supports only char and wchar_t streams
     if constexpr (_STD is_same_v<_Elem, char>) {
@@ -46,17 +46,7 @@ _NODISCARD path operator+(const path& _Left, const path& _Right) {
 
 template <class _CharTy>
 _NODISCARD path operator+(const path& _Left, const _CharTy* const _Right) {
-    typename path::string_type _Result;
-
-    if constexpr (_STD is_same_v<_CharTy, char>) {
-        _Result = _Left.generic_string() + _Right;
-    } else if constexpr (_STD is_same_v<_CharTy, wchar_t>) {
-        _Result = _Left.generic_string() + _Convert_wide_to_narrow(code_page::utf8, _Right);
-    } else { // const char8_t*, const char16_t* and const char32_t*
-        _Result = _Left.generic_string() + _Convert_utf_to_narrow<_CharTy, char_traits<_CharTy>>(_Right);
-    }
-
-    return path(_Result);
+    return path(_Left.generic_string() + _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Right));
 }
 
 template _FILESYSTEM_API _NODISCARD path operator+(const path&, const char* const);
@@ -67,17 +57,7 @@ template _FILESYSTEM_API _NODISCARD path operator+(const path&, const wchar_t* c
 
 template <class _CharTy>
 _NODISCARD path operator+(const _CharTy* const _Left, const path& _Right) {
-    typename path::string_type _Result;
-
-    if constexpr (_STD is_same_v<_CharTy, char>) {
-        _Result = _Left + _Right.generic_string();
-    } else if constexpr (_STD is_same_v<_CharTy, wchar_t>) {
-        _Result = _Convert_wide_to_narrow(code_page::utf8, _Left) + _Right.generic_string();
-    } else { // const char8_t*, const char16_t* and const char32_t*
-        _Result = _Convert_utf_to_narrow<_CharTy, char_traits<_CharTy>>(_Left) + _Right.generic_string();
-    }
-
-    return path(_Result);
+    return path(_Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Left) + _Right.generic_string());
 }
 
 template _FILESYSTEM_API _NODISCARD path operator+(const char* const, const path&);
@@ -88,17 +68,7 @@ template _FILESYSTEM_API _NODISCARD path operator+(const wchar_t* const, const p
 
 template <class _Elem, class _Traits, class _Alloc>
 _NODISCARD path operator+(const path& _Left, const basic_string<_Elem, _Traits, _Alloc>& _Right) {
-    typename path::string_type _Result;
-
-    if constexpr (_STD is_same_v<_Elem, char>) {
-        _Result = _Left.generic_string() + _Right;
-    } else if constexpr (_STD is_same_v<_Elem, wchar_t>) {
-        _Result = _Left.generic_string() + _Convert_wide_to_narrow(code_page::utf8, _Right);
-    } else { // u8string, u16string and u32string
-        _Result = _Left.generic_string() + _Convert_utf_to_narrow<_Elem, _Traits>(_Right);
-    }
-
-    return path(_Result);
+    return path(_Left.generic_string() + _Convert_to_narrow<_Elem, _Traits>(_Right.data()));
 }
 
 template _FILESYSTEM_API _NODISCARD path operator+(const path&, const string&);
@@ -109,17 +79,7 @@ template _FILESYSTEM_API _NODISCARD path operator+(const path&, const wstring&);
 
 template <class _Elem, class _Traits, class _Alloc>
 _NODISCARD path operator+(const basic_string<_Elem, _Traits, _Alloc>& _Left, const path& _Right) {
-    typename path::string_type _Result;
-
-    if constexpr (_STD is_same_v<_Elem, char>) {
-        _Result = _Left + _Right.generic_string();
-    } else if constexpr (_STD is_same_v<_Elem, wchar_t>) {
-        _Result = _Convert_wide_to_narrow(code_page::utf8, _Left) + _Right.generic_string();
-    } else { // u8string, u16string and u32string
-        _Result = _Convert_utf_to_narrow<_Elem, _Traits>(_Left) + _Right.generic_string();
-    }
-
-    return path(_Result);
+    return path(_Convert_to_narrow<_Elem, _Traits>(_Left.data()) + _Right.generic_string());
 }
 
 template _FILESYSTEM_API _NODISCARD path operator+(const string&, const path&);
@@ -129,16 +89,12 @@ template _FILESYSTEM_API _NODISCARD path operator+(const u32string&, const path&
 template _FILESYSTEM_API _NODISCARD path operator+(const wstring&, const path&);
 
 // FUNCTION TEMPLATE path::path
-template <class _CharTy, class>
+template <class _CharTy>
 path::path(const _CharTy* const _Source) {
-    if constexpr (_STD is_same_v<_CharTy, char>) {
-        _Mytext = _Source;
-    } else if constexpr (_STD is_same_v<_CharTy, wchar_t>) {
-        _Mytext = _Convert_wide_to_narrow(code_page::utf8, _Source);
-    } else { // const char8_t*, const char16_t* and const char32_t*
-        _Mytext = _Convert_utf_to_narrow<_CharTy, char_traits<_CharTy>>(_Source);
-    }
+    // _CharTy must be an character (char/char8_t/char16_t/char32_t/wchar_t) type
+    static_assert(_Is_char_t<_CharTy>, "invalid character type");
 
+    _Mytext = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Source);
     _Check_size();
 }
 
@@ -148,16 +104,12 @@ template _FILESYSTEM_API path::path(const char16_t* const);
 template _FILESYSTEM_API path::path(const char32_t* const);
 template _FILESYSTEM_API path::path(const wchar_t* const);
 
-template <class _Src, class>
+template <class _Src>
 path::path(const _Src& _Source) {
-    if constexpr (_STD is_same_v<typename _Src::value_type, char>) {
-        _Mytext = _Source.data();
-    } else if constexpr (_STD is_same_v<typename _Src::value_type, wchar_t>) {
-        _Mytext = _Convert_wide_to_narrow(code_page::utf8, _Source.data());
-    } else { // u8string / u8string_view, u16string / u16string_view and u32string / u32string_view
-        _Mytext = _Convert_utf_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Source.data());
-    }
+    // _Src must be an string (basic_string/basic_string_view) type
+    static_assert(_Is_src_t<_Src>, "invalid string type");
 
+    _Mytext = _Convert_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Source.data());
     _Check_size();
 } 
 
@@ -176,7 +128,7 @@ template _FILESYSTEM_API path::path(const wstring_view&);
 // FUNCTION path::_Check_size
 constexpr void path::_Check_size() const {
     // path cannot be longer than 260 characters
-    if (_Mytext.size() > static_cast<size_t>(MAX_PATH)) {
+    if (_Mytext.size() > static_cast<size_t>(_MAX_PATH)) {
         _Throw_system_error("_Check_size", "invalid length", error_type::length_error);
     }
 }
@@ -191,16 +143,12 @@ path& path::operator=(const path& _Source) {
     return *this;
 }
 
-template <class _CharTy, class>
+template <class _CharTy>
 path& path::operator=(const _CharTy* const _Source) {
-    if constexpr (_STD is_same_v<_CharTy, char>) {
-        _Mytext = _Source;
-    } else if constexpr (_STD is_same_v<_CharTy, wchar_t>) {
-        _Mytext = _Convert_wide_to_narrow(code_page::utf8, _Source);
-    } else { // const char8_t*, const char16_t* and const char32_t*
-        _Mytext = _Convert_utf_to_narrow<_CharTy, char_traits<_CharTy>>(_Source);
-    }
-
+    // _CharTy must be an character (char/char8_t/char16_t/char32_t/wchar_t) type
+    static_assert(_Is_char_t<_CharTy>, "invalid character type");
+    
+    _Mytext = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Source);
     _Check_size();
     return *this;
 }
@@ -211,16 +159,12 @@ template _FILESYSTEM_API path& path::operator=(const char16_t* const);
 template _FILESYSTEM_API path& path::operator=(const char32_t* const);
 template _FILESYSTEM_API path& path::operator=(const wchar_t* const);
 
-template<class _Src, class>
+template<class _Src>
 path& path::operator=(const _Src& _Source) {
-    if constexpr (_STD is_same_v<typename _Src::value_type, char>) {
-        _Mytext = _Source.data();
-    } else if constexpr (_STD is_same_v<typename _Src::value_type, wchar_t>) {
-        _Mytext = _Convert_wide_to_narrow(code_page::utf8, _Source.data());
-    } else { // u8string / u8string_view, u16string / u16string_view and u32string / u32string_view
-        _Mytext = _Convert_utf_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Source.data());
-    }
+    // _Src must be an string (basic_string/basic_string_view) type
+    static_assert(_Is_src_t<_Src>, "invalid string type");
 
+    _Mytext = _Convert_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Source.data());
     _Check_size();
     return *this;
 }
@@ -242,8 +186,9 @@ path& path::assign(const path& _Source) {
     return operator=(_Source);
 }
 
-template <class _CharTy, class>
+template <class _CharTy>
 path& path::assign(const _CharTy* const _Source) {
+    // don't check _CharTy type, because operator=() will check it
     return operator=(_Source);
 }
 
@@ -253,8 +198,9 @@ template _FILESYSTEM_API path& path::assign(const char16_t* const);
 template _FILESYSTEM_API path& path::assign(const char32_t* const);
 template _FILESYSTEM_API path& path::assign(const wchar_t* const);
 
-template <class _Src, class>
+template <class _Src>
 path& path::assign(const _Src& _Source) {
+    // don't check _Src type, because operator=() will check it
     return operator=(_Source);
 }
 
@@ -280,16 +226,12 @@ path& path::operator+=(const path& _Added) {
     return *this;
 }
 
-template <class _CharTy, class>
+template <class _CharTy>
 path& path::operator+=(const _CharTy* const _Added) {
-    if constexpr (_STD is_same_v<_CharTy, char>) {
-        _Mytext += _Added;
-    } else if constexpr (_STD is_same_v<_CharTy, wchar_t>) {
-        _Mytext += _Convert_wide_to_narrow(code_page::utf8, _Added);
-    } else { // const char8_t*, const char16_t* and const char32_t*
-        _Mytext += _Convert_utf_to_narrow<_CharTy, char_traits<_CharTy>>(_Added);
-    }
+    // _CharTy must be an character (char/char8_t/char16_t/char32_t/wchar_t) type
+    static_assert(_Is_char_t<_CharTy>, "invalid character type");
 
+    _Mytext += _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Added);
     _Check_size();
     return *this;
 }
@@ -300,16 +242,12 @@ template _FILESYSTEM_API path& path::operator+=(const char16_t* const);
 template _FILESYSTEM_API path& path::operator+=(const char32_t* const);
 template _FILESYSTEM_API path& path::operator+=(const wchar_t* const);
 
-template <class _Src, class>
+template <class _Src>
 path& path::operator+=(const _Src& _Added) {
-    if constexpr (_STD is_same_v<typename _Src::value_type, char>) {
-        _Mytext += _Added.data();
-    } else if constexpr (_STD is_same_v<typename _Src::value_type, wchar_t>) {
-        _Mytext += _Convert_wide_to_narrow(code_page::utf8, _Added.data());
-    } else { // u8string / u8string_view, u16string / u16string_view and u32string / u32string_view
-        _Mytext += _Convert_utf_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Added.data());
-    }
+    // _Src must be an string (basic_string/basic_string_view) type
+    static_assert(_Is_src_t<_Src>, "invalid string type");
 
+    _Mytext += _Convert_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Added.data());
     _Check_size();
     return *this;
 }
@@ -331,8 +269,9 @@ path& path::append(const path& _Added) {
     return operator+=(_Added);
 }
 
-template <class _CharTy, class>
+template <class _CharTy>
 path& path::append(const _CharTy* const _Added) {
+    // don't check _CharTy type, because operator+=() will check it
     return operator+=(_Added);
 }
 
@@ -342,8 +281,9 @@ template _FILESYSTEM_API path& path::append(const char16_t* const);
 template _FILESYSTEM_API path& path::append(const char32_t* const);
 template _FILESYSTEM_API path& path::append(const wchar_t* const);
 
-template <class _Src, class>
+template <class _Src>
 path& path::append(const _Src& _Added) {
+    // don't check _Src type, because operator+=() will check it
     return operator+=(_Added);
 }
 
@@ -365,15 +305,12 @@ bool path::operator==(const path& _Compare) const noexcept {
     return this != __builtin_addressof(_Compare) ? _Mytext == _Compare._Mytext : true;
 }
 
-template <class _CharTy, class>
+template <class _CharTy>
 bool path::operator==(const _CharTy* const _Compare) const {
-    if constexpr (_STD is_same_v<_CharTy, char>) {
-        return _Mytext == _Compare;
-    } else if constexpr (_STD is_same_v<_CharTy, wchar_t>) {
-        return _Mytext == _Convert_wide_to_narrow(code_page::utf8, _Compare);
-    } else { // const char8_t*, const char16_t* and const char32_t*
-        return _Mytext == _Convert_utf_to_narrow<_CharTy, char_traits<_CharTy>>(_Compare);
-    }
+    // _CharTy must be an chararcter (char/char8_t/char16_t/char32_t/wchar_t) type
+    static_assert(_Is_char_t<_CharTy>, "invalid character type");
+    
+    return _Mytext == _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Compare);
 }
 
 template _FILESYSTEM_API bool path::operator==(const char* const) const;
@@ -382,15 +319,12 @@ template _FILESYSTEM_API bool path::operator==(const char16_t* const) const;
 template _FILESYSTEM_API bool path::operator==(const char32_t* const) const;
 template _FILESYSTEM_API bool path::operator==(const wchar_t* const) const;
 
-template <class _Src, class>
+template <class _Src>
 bool path::operator==(const _Src& _Compare) const {
-    if constexpr (_STD is_same_v<typename _Src::value_type, char>) {
-        return _Mytext == _Compare.data();
-    } else if constexpr (_STD is_same_v<typename _Src::value_type, wchar_t>) {
-        return _Mytext == _Convert_wide_to_narrow(code_page::utf8, _Compare.data());
-    } else { // u8string / u8string_view, u16string / u16string_view and u32string / u32string_view
-        return _Mytext == _Convert_utf_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Compare.data());
-    } 
+    // _Src must be an string (basic_string/basic_string_view) type
+    static_assert(_Is_src_t<_Src>, "invalid string type");
+    
+    return _Mytext == _Convert_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Compare.data());
 }
 
 template _FILESYSTEM_API bool path::operator==(const string&) const;
@@ -411,15 +345,12 @@ bool path::operator!=(const path& _Compare) const noexcept {
     return this != __builtin_addressof(_Compare) ? _Mytext != _Compare._Mytext : false;
 }
 
-template <class _CharTy, class>
+template <class _CharTy>
 bool path::operator!=(const _CharTy* const _Compare) const {
-    if constexpr (_STD is_same_v<_CharTy, char>) {
-        return _Mytext != _Compare;
-    } else if constexpr (_STD is_same_v<_CharTy, wchar_t>) {
-        return _Mytext != _Convert_wide_to_narrow(code_page::utf8, _Compare);
-    } else { // const char8_t*, const char16_t* and const char32_t*
-        return _Mytext != _Convert_utf_to_narrow<_CharTy, char_traits<_CharTy>>(_Compare);
-    }
+    // _CharTy must be an chararcter (char/char8_t/char16_t/char32_t/wchar_t) type
+    static_assert(_Is_char_t<_CharTy>, "invalid character type");
+    
+    return _Mytext != _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Compare);
 }
 
 template _FILESYSTEM_API bool path::operator!=(const char* const) const;
@@ -428,15 +359,12 @@ template _FILESYSTEM_API bool path::operator!=(const char16_t* const) const;
 template _FILESYSTEM_API bool path::operator!=(const char32_t* const) const;
 template _FILESYSTEM_API bool path::operator!=(const wchar_t* const) const;
 
-template <class _Src, class>
+template <class _Src>
 bool path::operator!=(const _Src& _Compare) const {
-    if constexpr (_STD is_same_v<typename _Src::value_type, char>) {
-        return _Mytext != _Compare.data();
-    } else if constexpr (_STD is_same_v<typename _Src::value_type, wchar_t>) {
-        return _Mytext != _Convert_wide_to_narrow(code_page::utf8, _Compare.data());
-    } else { // u8string / u8string_view, u16string / u16string_view and u32string / u32string_view
-        return _Mytext != _Convert_utf_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Compare.data());
-    }
+    // _Src must be an string (basic_string/basic_string_view) type
+    static_assert(_Is_src_t<_Src>, "invalid string type");
+    
+    return _Mytext != _Convert_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Compare.data());
 }
 
 template _FILESYSTEM_API bool path::operator!=(const string&) const;
@@ -512,22 +440,22 @@ _NODISCARD const string path::generic_string() const noexcept {
 }
 
 // FUNCTION path::generic_u8string
-_NODISCARD const u8string path::generic_u8string() const noexcept {
+_NODISCARD const u8string path::generic_u8string() const {
     return _Convert_narrow_to_utf<char8_t, char_traits<char8_t>>(_Mytext.data());
 }
 
 // FUNCTION path::generic_u16string
-_NODISCARD const u16string path::generic_u16string() const noexcept {
+_NODISCARD const u16string path::generic_u16string() const {
     return _Convert_narrow_to_utf<char16_t, char_traits<char16_t>>(_Mytext.data());
 }
 
 // FUNCTION path::generic_u32string
-_NODISCARD const u32string path::generic_u32string() const noexcept {
+_NODISCARD const u32string path::generic_u32string() const {
     return _Convert_narrow_to_utf<char32_t, char_traits<char32_t>>(_Mytext.data());
 }
 
 // FUNCTION path::generic_wstring
-_NODISCARD const wstring path::generic_wstring() const noexcept {
+_NODISCARD const wstring path::generic_wstring() const {
     return _Convert_narrow_to_wide(code_page::utf8, _Mytext.data());
 }
 
@@ -589,7 +517,7 @@ _NODISCARD bool path::has_file() const noexcept {
 // FUNCTION path::has_parent_directory
 _NODISCARD bool path::has_parent_directory() const noexcept {
     // if has root directory, then must be longer than root path, otherwise all path is parent path
-    return has_root_directory() ? _Mytext.size() > root_path().generic_string().size() : true;
+    return has_root_directory() ? _Mytext.size() > root_path()._Mytext.size() : true;
 }
 
 // FUNCTION path::has_root_directory
@@ -649,18 +577,18 @@ _NODISCARD path& path::make_preferred() noexcept {
 // FUNCTION path::parent_directory
 _NODISCARD path path::parent_directory() const noexcept {
     // if has parent directory, then return only first directory from parent path
-    return has_parent_directory() ? string_type(parent_path().generic_string(), 0,
-        parent_path().generic_string().find_first_of(_Expected_slash)) : string_type();
+    return has_parent_directory() ? string_type(parent_path()._Mytext, 0,
+        parent_path()._Mytext.find_first_of(_Expected_slash)) : string_type();
 }
 
 // FUNCTION path::parent_path
 _NODISCARD path path::parent_path() const noexcept {
     if (has_parent_directory()) { // parent path is everything after root directory
         if (has_drive()) { // remove drive and root directory (with ":" and 2 slashes)
-            return string_type(_Mytext, drive().generic_string().size()
-                + root_directory().generic_string().size() + 3, _Mytext.size());
+            return string_type(_Mytext, drive()._Mytext.size()
+                + root_directory()._Mytext.size() + 3, _Mytext.size());
         } else if (!has_drive() && has_root_directory()) { // remove only root directory (with 2 slashes)
-            return string_type(_Mytext, root_directory().generic_string().size() + 2, _Mytext.size());
+            return string_type(_Mytext, root_directory()._Mytext.size() + 2, _Mytext.size());
         } else { // nothing to do, because current working path is parent path
             return _Mytext;
         }
@@ -694,8 +622,8 @@ _NODISCARD path& path::remove_file(const bool _With_slash) noexcept {
 _NODISCARD path& path::replace_extension(const path& _Replacement) {
     if (has_extension()) {
         (void) remove_extension();
-        *this += _Replacement.generic_string()[0] == '.' ?
-            _Replacement : "." + _Replacement.generic_string();
+        _Mytext += _Replacement._Mytext[0] == '.' ?
+            _Replacement._Mytext : "." + _Replacement._Mytext;
         _Check_size();
     }
 
@@ -705,9 +633,9 @@ _NODISCARD path& path::replace_extension(const path& _Replacement) {
 // FUNCTION path::replace_file
 _NODISCARD path& path::replace_file(const path& _Replacement) {
     if (has_file()) {
-        (void) remove_file(_Replacement.generic_string()[0] == _Expected_slash
-            || _Replacement.generic_string()[0] == _Unexpected_slash);
-        *this += _Replacement;
+        (void) remove_file(_Replacement._Mytext[0] == _Expected_slash
+            || _Replacement._Mytext[0] == _Unexpected_slash);
+        _Mytext += _Replacement._Mytext;
         _Check_size();
     }
 
@@ -717,11 +645,11 @@ _NODISCARD path& path::replace_file(const path& _Replacement) {
 // FUNCTION path::replace_stem
 _NODISCARD path& path::replace_stem(const path& _Replacement) {
     if (has_stem()) {
-        const auto& _Ext = extension();
+        const auto& _Ext{extension()};
 
         (void) remove_file(false);
-        *this += _Replacement;
-        *this += "." + _Ext.generic_string();
+        _Mytext += _Replacement._Mytext;
+        _Mytext += "." + _Ext._Mytext;
         _Check_size();
     }
 
@@ -737,8 +665,8 @@ constexpr void path::resize(const size_t _Newsize, const value_type _Ch) {
 // FUNCTION path::root_directory
 _NODISCARD path path::root_directory() const noexcept {
     // if has root directory, then return only first directory from root path
-    return has_root_directory() ? string_type(root_path().generic_string(), 0,
-        root_path().generic_string().find_first_of(_Expected_slash)) : string_type();
+    return has_root_directory() ? string_type(root_path()._Mytext, 0,
+        root_path()._Mytext.find_first_of(_Expected_slash)) : string_type();
 }
 
 // FUNCTION path::root_path
@@ -773,8 +701,8 @@ _NODISCARD path path::stem() const noexcept {
 
 // FUNCTION current_path
 _NODISCARD path current_path() noexcept {
-    wchar_t _Buff[MAX_PATH];
-    if (!_CSTD GetCurrentDirectoryW(MAX_PATH, _Buff)) { // failed to get current path
+    wchar_t _Buff[_MAX_PATH];
+    if (!GetCurrentDirectoryW(_MAX_PATH, _Buff)) { // failed to get current path
         _Throw_fs_error("failed to get current path", error_type::runtime_error, "current_path");
     }
 
@@ -783,11 +711,11 @@ _NODISCARD path current_path() noexcept {
 
 _NODISCARD bool current_path(const path& _Path) { // sets new current path
     // path cannot be longer than 260 characters
-    if (_Path.generic_string().size() > static_cast<size_t>(MAX_PATH)) {
+    if (_Path.generic_string().size() > static_cast<size_t>(_MAX_PATH)) {
         _Throw_system_error("set_path", "invalid length", error_type::length_error);
     }
 
-    if (!_CSTD SetCurrentDirectoryW(_Path.generic_wstring().c_str())) { // failed to set new path
+    if (!SetCurrentDirectoryW(_Path.generic_wstring().c_str())) { // failed to set new path
         _Throw_fs_error("failed to set new path", error_type::runtime_error, "set_path");
     }
 
@@ -796,13 +724,10 @@ _NODISCARD bool current_path(const path& _Path) { // sets new current path
 
 // FUNCTION temp_directory_path
 _NODISCARD path temp_directory_path() {
-    wchar_t _Buff[MAX_PATH];
-    const unsigned long _Size{_CSTD GetTempPathW(MAX_PATH, _Buff)};
+    wchar_t _Buff[_MAX_PATH];
+    const unsigned long _Size{GetTempPathW(_MAX_PATH, _Buff)};
 
-    if (_Size == 0) { // for some reasons failed to get temp path
-        _Throw_fs_error("failed to get temporary path", error_type::runtime_error, "temp_directory_path");
-    }
-
+    _FILESYSTEM_VERIFY(_Size > 0, "failed to get temporary path", error_type::runtime_error);
     path _Tmp{static_cast<const wchar_t*>(_Buff)};
     if (_Tmp.generic_string().back() == _Expected_slash) { // unnecessary slash on last position
         _Tmp.resize(_Tmp.size() - 1);
@@ -818,17 +743,14 @@ _NODISCARD path temp_directory_path() {
         }
     }
 
-    if (!_Is_directory(_Tmp)) { // target must be a directory
-        _Throw_fs_error("temporary directory path not found", error_type::runtime_error, "temp_directory_path");
-    }
-
+    _FILESYSTEM_VERIFY(_Is_directory(_Tmp), "temporary directory path not found", error_type::runtime_error);
     return _Tmp;
 }
 
 #pragma warning(push)
 #pragma warning(disable : 4455) // C4455: reserved name
 namespace path_literals {
-    // FUNCTION operator""__p
+    // FUNCTION operator""p
     _NODISCARD path operator""p(const char* const _Str, const size_t _Size) noexcept {
         return path(_Str);
     }

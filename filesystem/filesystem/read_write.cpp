@@ -3,7 +3,7 @@
 // Copyright (c) Mateusz Jandura. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-#include <pch.h>
+#include <filesystem_pch.hpp>
 #include <filesystem.hpp>
 
 #if !_HAS_WINDOWS
@@ -31,18 +31,12 @@ _NODISCARD bool clear(const path& _Target) { // if directory, removes everything
                 }
             }
 
-            if (!is_empty(_Target)) { // failed to clear the directory
-                _Throw_fs_error("failed to clear the directory", error_type::runtime_error, "clear");
-            }
-
+            _FILESYSTEM_VERIFY(is_empty(_Target), "failed to clear the directory", error_type::runtime_error);
             return true;
         } else { // file, symlink or other
             (void) resize_file(_Target, 0);
 
-            if (!is_empty(_Target)) { // failed to clear the file
-                _Throw_fs_error("failed to clear the file", error_type::runtime_error, "clear");
-            }
-
+            _FILESYSTEM_VERIFY(is_empty(_Target), "failed to clear the file", error_type::runtime_error);
             return true;
         }
     }
@@ -53,15 +47,12 @@ _NODISCARD bool clear(const path& _Target) { // if directory, removes everything
 
 // FUNCTION lines_count
 _NODISCARD uintmax_t lines_count(const path& _Target) { // counts lines in _Target
-    if (_Is_directory(_Target)) { // lines_count() is reserved for files only
-        _Throw_fs_error("expected file", error_type::runtime_error, "lines_count");
-    }
-    
+    _FILESYSTEM_VERIFY(!_Is_directory(_Target), "expected the file", error_type::runtime_error);
     return read_all(_Target).size();
 }
 
 // FUNCTION read_all
-_NODISCARD vector<path> read_all(const path& _Target) { // reads all lines in _Target (ignores last empty lines)
+_NODISCARD vector<string> read_all(const path& _Target) { // reads all lines in _Target (ignores last empty lines)
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "read_all");
     }
@@ -72,13 +63,11 @@ _NODISCARD vector<path> read_all(const path& _Target) { // reads all lines in _T
 
     if (!is_empty(_Target)) {
         ifstream _File;
-        vector<path> _All;
-        typename path::string_type _Single;
+        vector<string> _All;
+        string _Single;
 
         _File.open(_Target.generic_wstring());
-        if (!_File) { // bad file
-            _Throw_fs_error("bad file", error_type::runtime_error, "read_all");
-        }
+        _FILESYSTEM_VERIFY_FILE_STREAM(_File);
 
         while (!_File.eof()) {
             if (_All.size() + 1 >= _All.max_size()) { // don't use max size
@@ -99,17 +88,17 @@ _NODISCARD vector<path> read_all(const path& _Target) { // reads all lines in _T
         return _All;
     }
 
-    return vector<path>();
+    return vector<string>();
 }
 
 // FUNCTION read_back
-_NODISCARD path read_back(const path& _Target) { // reads last line in _Target
+_NODISCARD string read_back(const path& _Target) { // reads last line in _Target
     if (_Is_directory(_Target)) { // read_back() is reserved for files only
         _Throw_fs_error("expected file", error_type::runtime_error, "read_back");
     }
     
     if (is_empty(_Target)) {
-        return path();
+        return string();
     }
     
     const auto& _All{read_all(_Target)};
@@ -117,7 +106,7 @@ _NODISCARD path read_back(const path& _Target) { // reads last line in _Target
 }
 
 // FUNCTION read_first
-_NODISCARD path read_front(const path& _Target) { // reads first line in _Target
+_NODISCARD string read_front(const path& _Target) { // reads first line in _Target
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "read_front");
     }
@@ -128,33 +117,28 @@ _NODISCARD path read_front(const path& _Target) { // reads first line in _Target
 
     if (!is_empty(_Target)) {
         ifstream _File;
-        typename path::string_type _First;
+        string _First;
 
         _File.open(_Target.generic_wstring());
-        if (!_File) { // bad file
-            _Throw_fs_error("bad", error_type::runtime_error, "read_front");
-        }
+        _FILESYSTEM_VERIFY_FILE_STREAM(_File);
 
         _STD getline(_File, _First);
         _File.close();
-        return path(_First);
+        return _First;
     }
 
-    return path();
+
+    return string();
 }
 
 // FUNCTION read_inside
-_NODISCARD path read_inside(const path& _Target, const uintmax_t _Line) { // reads _Line line from _Target
+_NODISCARD string read_inside(const path& _Target, const uintmax_t _Line) { // reads _Line line from _Target
     if (_Is_directory(_Target)) { // read_inside() is reserved for files only
         _Throw_fs_error("expected file", error_type::runtime_error, "read_inside");
     }
     
     const auto& _All{read_all(_Target)};
-
-    if (_Line > _All.size() || _Line < 1) { // _Line grater than lines count or less than 1 (count starts from 1)
-        _Throw_fs_error("invalid line", error_type::invalid_argument, "read_inside");
-    }
-    
+    _FILESYSTEM_VERIFY(_Line <= _All.size() && _Line > 0, "invalid line", error_type::runtime_error);  
     return _All[_Line - 1];
 }
 
@@ -164,15 +148,12 @@ _NODISCARD path read_junction(const path& _Target) {
         _Throw_fs_error("expected junction", error_type::runtime_error, "read_junction");
     }
 
-    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly | file_access::writeonly), 0, nullptr,
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "read_junction");
-    }
-
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
     // In some cases read_junction() may using more bytes than defaule maximum (16384 bytes).
     // To avoid C6262 warning and potential threat, buffor size is set to 16284 bytes.
     // It shouldn't change result and it's safer. If your /analyse:stacksize is set to larger value,
@@ -181,13 +162,13 @@ _NODISCARD path read_junction(const path& _Target) {
     reparse_data_buffer& _Reparse_buff = reinterpret_cast<reparse_data_buffer&>(_Buff);
     unsigned long _Bytes; // returned bytes from DeviceIoControl()
 
-    if (!_CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+    if (!DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
         &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to read junction
-        _CSTD CloseHandle(_Handle); // close handle even if function will throw an exception
+        CloseHandle(_Handle); // close handle even if function will throw an exception
         _Throw_fs_error("failed to read junction", error_type::runtime_error, "read_junction");
     }
 
-    _CSTD CloseHandle(_Handle);
+    CloseHandle(_Handle);
 
     // check if result contains unnecessary content (prefix and sufix)
     wstring _Reparse{_Reparse_buff._Mount_point_reparse_buffer._Path_buffer};
@@ -209,15 +190,12 @@ _NODISCARD path read_symlink(const path& _Target) { // returns full path to targ
         _Throw_fs_error("symbolic link not found", error_type::runtime_error, "read_symlink");
     }
 
-    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read), nullptr,
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "read_symlink");
-    }
-
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
     // In some cases read_symlink() may using more bytes than defaule maximum (16384 bytes).
     // To avoid C6262 warning and potential threat, buffor size is set to 15734 bytes.
     // It shouldn't change result and it's safer. If your /analyse:stacksize is set to larger value,
@@ -226,20 +204,20 @@ _NODISCARD path read_symlink(const path& _Target) { // returns full path to targ
     reparse_data_buffer& _Reparse_buff = reinterpret_cast<reparse_data_buffer&>(_Buff);
     unsigned long _Bytes; // returnd bytes from DeviceIoControl()
 
-    if (!_CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+    if (!DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
         &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to read symlink
-        _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
+        CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to read sybmolic link", error_type::runtime_error, "read_symlink");
     }
 
-    _CSTD CloseHandle(_Handle);
+    CloseHandle(_Handle);
 
-    const size_t _Len  = _Reparse_buff._Symbolic_link_reparse_buffer._Substitute_name_length / sizeof(wchar_t) + 1;
-    wchar_t* _Sub_name = new wchar_t[_Len + 1];
+    const size_t _Length = _Reparse_buff._Symbolic_link_reparse_buffer._Substitute_name_length / sizeof(wchar_t) + 1;
+    wchar_t* _Sub_name   = new wchar_t[_Length + 1];
 
-    _CSTD wcsncpy_s(_Sub_name, _Len + 1, &_Reparse_buff._Symbolic_link_reparse_buffer._Path_buffer[
-        _Reparse_buff._Symbolic_link_reparse_buffer._Substitute_name_offset / sizeof(wchar_t) + 1], _Len);
-    _Sub_name[_Len] = L'\0'; // C string must ends with 0
+    _CSTD wcsncpy_s(_Sub_name, _Length + 1, &_Reparse_buff._Symbolic_link_reparse_buffer._Path_buffer[
+        _Reparse_buff._Symbolic_link_reparse_buffer._Substitute_name_offset / sizeof(wchar_t) + 1], _Length);
+    _Sub_name[_Length] = L'\0'; // C string must ends with 0
 
     // first char is copy of last and must be skiped, because with him result will be incorrect
     wstring _Reparse(_Sub_name, 1, _CSTD wcslen(_Sub_name) - 1);
@@ -263,91 +241,90 @@ _NODISCARD bool resize_file(const path& _Target, const size_t _Newsize) {
         _Throw_fs_error("expected file", error_type::runtime_error, "resize_file");
     }
 
-    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::writeonly), static_cast<unsigned long>(file_share::read
             | file_share::write | file_share::remove), nullptr, static_cast<unsigned long>(file_disposition::only_if_exists),
         static_cast<unsigned long>(file_attributes::none), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to open handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "resize_file");
-    }
-
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
     LARGE_INTEGER _Large;
     _Large.QuadPart = static_cast<long long>(_Newsize);
 
-    if (!_CSTD SetFilePointerEx(_Handle, _Large, nullptr, FILE_BEGIN)
-        || !_CSTD SetEndOfFile(_Handle)) { // failed to resize file
-        _CSTD CloseHandle(_Handle); // close handle even if function will throw an exception
+    if (!SetFilePointerEx(_Handle, _Large, nullptr, FILE_BEGIN)
+        || !SetEndOfFile(_Handle)) { // failed to resize file
+        CloseHandle(_Handle); // close handle even if function will throw an exception
         _Throw_fs_error("failed to resize file", error_type::runtime_error, "resize_file");
     }
 
-    _CSTD CloseHandle(_Handle);
+    CloseHandle(_Handle);
 
     return true;
 }
 
-// FUNCTION write_back
-_NODISCARD bool write_back(const path& _Target, const path& _Writable) {
+// FUNCTION TEMPLATE write_back
+template <class _CharTy>
+_NODISCARD bool write_back(const path& _Target, const _CharTy* const _Writable) {
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "write_back");
     }
 
-    if (_Is_directory(_Target)) { // write_back() is reserved for files only
+    if (_Is_directory(_Target)) { // write_back() is reserved for file only
         _Throw_fs_error("expected file", error_type::runtime_error, "write_back");
     }
 
-    // without "\n" on first position, _Writable will be added to existing line (if exists)
-    const auto& _Safe{is_empty(_Target) ? _Writable.generic_string() : "\n" + _Writable.generic_string()};
+    // without "\n" on first position, _Writable will be added to the existing line (if exists)
+    const auto& _Correct{is_empty(_Target) ?
+        _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Writable)
+        : "\n" + _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Writable)};
 
-    ofstream _File;	
+    ofstream _File;
     _File.open(_Target.generic_string(), ios::ate | ios::in | ios::out); // without ios::in, all content will be removed
+    _FILESYSTEM_VERIFY_FILE_STREAM(_File);
 
-    if (!_File) {
-        if (_File.is_open()) { // if is open, close
-            _File.close();
-        }
-
-        _Throw_fs_error("bad file", error_type::runtime_error, "write_back");
-    }
-
-    _File.write(_Safe.c_str(), _Safe.size());
+    _File.write(_Correct.c_str(), _Correct.size());
     _File.close();
 
-    if (read_back(_Target) != _Writable) { // failed to overwritte the file
-        _Throw_fs_error("failed to overwritte the file", error_type::runtime_error, "write_back");
-    }
-
+    // The _FILESYSTEM_VERIFY() don't accepts commas in template,
+    // so result of _Convert_to_narrow() must be as constant variable.
+    const string& _Narrow{_Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Writable)};
+    _FILESYSTEM_VERIFY(read_back(_Target) == _Narrow, "failed to overwrite the file", error_type::runtime_error);
     return true;
 }
 
-// FUNCTION write_front
-_NODISCARD bool write_front(const path& _Target, const path& _Writable) {
+template _FILESYSTEM_API _NODISCARD bool write_back(const path&, const char* const);
+template _FILESYSTEM_API _NODISCARD bool write_back(const path&, const char8_t* const);
+template _FILESYSTEM_API _NODISCARD bool write_back(const path&, const char16_t* const);
+template _FILESYSTEM_API _NODISCARD bool write_back(const path&, const char32_t* const);
+template _FILESYSTEM_API _NODISCARD bool write_back(const path&, const wchar_t* const);
+
+// FUNCTION TEMPLATE write_front
+template <class _CharTy>
+_NODISCARD bool write_front(const path& _Target, const _CharTy* const _Writable) {
     if (!exists(_Target)) { // file not found
-        _Throw_fs_error("file not found", error_type::runtime_error, "write_back");
+        _Throw_fs_error("file not found", error_type::runtime_error, "write_front");
     }
 
     if (_Is_directory(_Target)) { // write_front() is reserved for files only
-        _Throw_fs_error("expected file", error_type::runtime_error, "write_back");
+        _Throw_fs_error("expected file", error_type::runtime_error, "write_front");
     }
+
+    // _Narrow_writable will be used few times
+    const string& _Narrow_writable{_Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Writable)};
 
     // if is empty, write _Writable using write_back() and finish here
     if (is_empty(_Target)) {
-        (void) write_back(_Target, _Writable);
-
-        if (read_front(_Target) != _Writable) { // failed to overrite file
-            _Throw_fs_error("failed to overwrite file", error_type::runtime_error, "write_end");
-        }
-
+        (void) write_back(_Target, _Narrow_writable.c_str()); // no needs to convert
+        _FILESYSTEM_VERIFY(read_front(_Target) == _Narrow_writable, "failed to overwrite the file", error_type::runtime_error);
         return true;
     }
 
     // If isn't empty, the file must be overwritten with good content,
     // otherwise the file will contains unnecessary empty lines
     // and sometimes contents from different lines will be in the same line.
-    vector<path> _All{_Writable};
+    vector<string> _All{_Narrow_writable};
     
     for (const auto& _Line : read_all(_Target)) {
-        _All.push_back(_Line); // after added _Writable, add all content from read_all()
+        _All.push_back(_Line); // after added _Narrow_writable, add all content from read_all()
     }
 
     // use resize_file() instead of clear(), because we knows that _Target is file
@@ -355,18 +332,22 @@ _NODISCARD bool write_front(const path& _Target, const path& _Writable) {
 
     // don't add end of line, because write_back() will do it for us
     for (const auto& _Line : _All) {
-        (void) write_back(_Target, _Line);
+        (void) write_back(_Target, _Line.c_str());
     }
 
-    if (read_front(_Target) != _Writable) { // failed to overwrite file
-        _Throw_fs_error("failed to overwrite file", error_type::runtime_error, "write_front");
-    }
-    
+    _FILESYSTEM_VERIFY(read_front(_Target) == _Narrow_writable, "failed to overwrite the file", error_type::runtime_error);
     return true;
 }
 
-// FUNCTION write_inside
-_NODISCARD bool write_inside(const path& _Target, const path& _Writable, const uintmax_t _Line) {
+template _FILESYSTEM_API _NODISCARD bool write_front(const path&, const char* const);
+template _FILESYSTEM_API _NODISCARD bool write_front(const path&, const char8_t* const);
+template _FILESYSTEM_API _NODISCARD bool write_front(const path&, const char16_t* const);
+template _FILESYSTEM_API _NODISCARD bool write_front(const path&, const char32_t* const);
+template _FILESYSTEM_API _NODISCARD bool write_front(const path&, const wchar_t* const);
+
+// FUNCTION TEMPLATE write_inside
+template <class _CharTy>
+_NODISCARD bool write_inside(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line) {
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "write_inside");
     }
@@ -375,48 +356,51 @@ _NODISCARD bool write_inside(const path& _Target, const path& _Writable, const u
         _Throw_fs_error("expected file", error_type::runtime_error, "write_inside");
     }
 
-    const auto& _All   = read_all(_Target);
-    const auto& _Count = _All.size();
+    const auto& _All    = read_all(_Target);
+    const size_t _Count = _All.size();
 
     // Second condition is important, because user may want to write 
     // _Writable in the first line, in empty file. If it won't be checked,
     // write_inside() will throw exception.
-    if (_Line < 1 || (_Count > 0 && _Line > _Count)) {
-        _Throw_fs_error("invalid line", error_type::invalid_argument, "write_inside");
-    }
+    _FILESYSTEM_VERIFY(_Line > 0 && (_Count > 0 && _Line <= _Count), "invalid line", error_type::runtime_error);
+
+    // _Narrow_writable will be used few times
+    const string& _Narrow_writable{_Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Writable)};
 
     // if _Target is an empty file, write _Writable at the end of the file
     // and return write_back() result
     if (_Count == 0) { // empty file
-        return write_back(_Target, _Writable);
+        return write_back(_Target, _Narrow_writable.c_str()); // no needs to convert
     }
 
     if (_Line == 1) { // write in first line, in _Target and return write_front() result
-        return write_front(_Target, _Writable);
+        return write_front(_Target, _Narrow_writable.c_str()); // no needs to convert
     }
 
-    auto _Write       = _All;
-    const auto& _Iter = _Write.begin();
-
-    _Write.insert(_Iter + (_Line - 1), _Writable);
+    auto _Write{_All};
+    _Write.insert(_Write.begin() + (_Line - 1), _Narrow_writable);
 
     // clear file and write the newest content,
     // use resize_file() instead of clear(), because we knows that _Target is file
     (void) resize_file(_Target, 0);
 
     for (const auto& _Elem : _Write) {
-        (void) write_back(_Target, _Elem);
+        (void) write_back(_Target, _Elem.c_str());
     }
 
-    if (read_inside(_Target, _Line) != _Writable) { // failed to overwrite file
-        _Throw_fs_error("failed to overwrite the file", error_type::runtime_error, "write_inside");
-    }
-
+    _FILESYSTEM_VERIFY(read_inside(_Target, _Line) == _Narrow_writable, "failed to overwrite the file", error_type::runtime_error);
     return true;
 }
 
-// FUNCTION write_instead
-_NODISCARD bool write_instead(const path& _Target, const path& _Writable, const uintmax_t _Line) {
+template _FILESYSTEM_API _NODISCARD bool write_inside(const path& _Target, const char* const, const uintmax_t);
+template _FILESYSTEM_API _NODISCARD bool write_inside(const path& _Target, const char8_t* const, const uintmax_t);
+template _FILESYSTEM_API _NODISCARD bool write_inside(const path& _Target, const char16_t* const, const uintmax_t);
+template _FILESYSTEM_API _NODISCARD bool write_inside(const path& _Target, const char32_t* const, const uintmax_t);
+template _FILESYSTEM_API _NODISCARD bool write_inside(const path& _Target, const wchar_t* const, const uintmax_t);
+
+// FUNCTION TEMPLATE write_instead
+template <class _CharTy>
+_NODISCARD bool write_instead(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line) {
     if (!exists(_Target)) { // file not found
         _Throw_fs_error("file not found", error_type::runtime_error, "write_instead");
     }
@@ -425,28 +409,30 @@ _NODISCARD bool write_instead(const path& _Target, const path& _Writable, const 
         _Throw_fs_error("expected file", error_type::runtime_error, "write_instead");
     }
 
-    auto _All          = read_all(_Target);
-    const auto& _Count = _All.size();
+    const string& _Narrow_writable = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Writable);
+    auto _All                      = read_all(_Target);
+    const size_t _Count            = _All.size();
 
-    if (_Line < 1 || _Line > _Count) { // invalid line
-        _Throw_fs_error("invalid line", error_type::invalid_argument, "write_instead");
-    }
-
-    _All[_Line - 1] = _Writable; // swap content
+    _FILESYSTEM_VERIFY(_Line > 0 && _Line <= _Count, "invalid line", error_type::runtime_error);
+    _All[_Line - 1] = _Narrow_writable; // swap content
 
     // clear _Target and write to him the newest content,
     // use resize_file() instead of clear(), because we knows that _Target is file
+    (void) resize_file(_Target, 0);
 
     for (const auto& _Elem : _All) {
-        (void) write_back(_Target, _Elem);
+        (void) write_back(_Target, _Elem.c_str());
     }
 
-    if (read_inside(_Target, _Line) != _Writable) { // failed to replace line
-        _Throw_fs_error("failed to overwrite the  file", error_type::runtime_error, "write_instead");
-    }
-
+    _FILESYSTEM_VERIFY(read_inside(_Target, _Line) == _Narrow_writable, "failed to overwrite the file", error_type::runtime_error);
     return true;
 }
+
+template _FILESYSTEM_API _NODISCARD bool write_instead(const path& _Target, const char* const, const uintmax_t);
+template _FILESYSTEM_API _NODISCARD bool write_instead(const path& _Target, const char8_t* const, const uintmax_t);
+template _FILESYSTEM_API _NODISCARD bool write_instead(const path& _Target, const char16_t* const, const uintmax_t);
+template _FILESYSTEM_API _NODISCARD bool write_instead(const path& _Target, const char32_t* const, const uintmax_t);
+template _FILESYSTEM_API _NODISCARD bool write_instead(const path& _Target, const wchar_t* const, const uintmax_t);
 _FILESYSTEM_END
 
 #endif // !_HAS_WINDOWS
