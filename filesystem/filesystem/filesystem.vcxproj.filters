@@ -1,52 +1,52 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="source">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
     <Filter Include="bin">
       <UniqueIdentifier>{845a23ed-9d8b-4c65-a519-f774c85e98e6}</UniqueIdentifier>
     </Filter>
     <Filter Include="git">
       <UniqueIdentifier>{d56c0a8b-492f-418c-aad3-cb13dabe0d67}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="framework.h">
-      <Filter>source</Filter>
+    <ClInclude Include="filesystem_framework.hpp">
+      <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="pch.h">
-      <Filter>source</Filter>
+    <ClInclude Include="filesystem_pch.hpp">
+      <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="filesystem.hpp">
-      <Filter>source</Filter>
+      <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="dllmain.cpp">
-      <Filter>source</Filter>
+    <ClCompile Include="build_filesystem_dll.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="pch.cpp">
-      <Filter>source</Filter>
+    <ClCompile Include="filesystem_pch.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="error.cpp">
-      <Filter>source</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="conversion.cpp">
-      <Filter>source</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="path.cpp">
-      <Filter>source</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="status.cpp">
-      <Filter>source</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="create_remove.cpp">
-      <Filter>source</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="read_write.cpp">
-      <Filter>source</Filter>
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

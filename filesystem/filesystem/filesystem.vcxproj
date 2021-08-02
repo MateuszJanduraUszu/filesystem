@@ -114,7 +114,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;FILESYSTEM_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>filesystem_pch.hpp</PrecompiledHeaderFile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <AdditionalIncludeDirectories>$(SolutionDir)filesystem</AdditionalIncludeDirectories>
@@ -135,11 +135,10 @@
       <PreprocessorDefinitions>_DEBUG;FILESYSTEM_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>filesystem_pch.hpp</PrecompiledHeaderFile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <AdditionalIncludeDirectories>$(SolutionDir)filesystem</AdditionalIncludeDirectories>
-      <AdditionalOptions>/D_FILESYSTEM_EXPORT %(AdditionalOptions)</AdditionalOptions>
       <CallingConvention>StdCall</CallingConvention>
     </ClCompile>
     <Link>
@@ -157,7 +156,7 @@
       <PreprocessorDefinitions>NDEBUG;FILESYSTEM_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>filesystem_pch.hpp</PrecompiledHeaderFile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <AdditionalIncludeDirectories>$(SolutionDir)filesystem</AdditionalIncludeDirectories>
@@ -173,16 +172,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="filesystem.hpp" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="pch.h" />
+    <ClInclude Include="filesystem_framework.hpp" />
+    <ClInclude Include="filesystem_pch.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="conversion.cpp" />
     <ClCompile Include="create_remove.cpp" />
-    <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="build_filesystem_dll.cpp" />
     <ClCompile Include="error.cpp" />
     <ClCompile Include="path.cpp" />
-    <ClCompile Include="pch.cpp">
+    <ClCompile Include="filesystem_pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

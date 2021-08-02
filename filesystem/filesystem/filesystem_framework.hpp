@@ -1,12 +1,12 @@
-﻿// framework.h
+﻿// filesystem_framework.hpp
 
 // Copyright (c) Mateusz Jandura. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#ifndef _FRAMEWORK_H_
-#define _FRAMEWORK_H_
+#ifndef _FILESYSTEM_FRAMEWORK_HPP_
+#define _FILESYSTEM_FRAMEWORK_HPP_
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#endif // _FRAMEWORK_H_
+#endif // _FILESYSTEM_FRAMEWORK_HPP_
