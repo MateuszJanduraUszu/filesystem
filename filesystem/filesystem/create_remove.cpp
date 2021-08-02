@@ -3,7 +3,7 @@
 // Copyright (c) Mateusz Jandura. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-#include <pch.h>
+#include <filesystem_pch.hpp>
 #include <filesystem.hpp>
 
 #if !_HAS_WINDOWS
@@ -37,8 +37,8 @@ _NODISCARD bool copy(const path& _From, const path& _To, const copy_options _Opt
     }
 
     if (_Options == copy_options::none) { // try to do it with default CopyFileW() or SHFileOperationW()
-        if (!_CSTD CopyFileW(_From.generic_wstring().c_str(), _To.generic_wstring().c_str(), true)) { // failed to copy target
-            if (_CSTD GetLastError() == ERROR_ACCESS_DENIED) { // _From is directory
+        if (!CopyFileW(_From.generic_wstring().c_str(), _To.generic_wstring().c_str(), true)) { // failed to copy target
+            if (GetLastError() == ERROR_ACCESS_DENIED) { // _From is directory
                 const auto& _Src  = _From.generic_wstring();
                 const auto& _Dest = _To.generic_wstring();
 
@@ -52,7 +52,7 @@ _NODISCARD bool copy(const path& _From, const path& _To, const copy_options _Opt
                 _Ops.pTo    = _Dest.c_str();
                 _Ops.wFunc  = FO_COPY;
 
-                if (_CSTD SHFileOperationW(&_Ops)) { // failed to copy directory replacing existing
+                if (SHFileOperationW(&_Ops)) { // failed to copy directory replacing existing
                     _Throw_fs_error("failed to copy directory", error_type::runtime_error, "copy");
                 }                
             } else { // unknown error
@@ -85,13 +85,10 @@ _NODISCARD bool copy(const path& _From, const path& _To, const copy_options _Opt
                 (void) clear(_To);
 
                 for (const auto& _Elem : read_all(_From)) {
-                    (void) write_back(_To, _Elem);
+                    (void) write_back(_To, _Elem.c_str());
                 }
 
-                if (read_all(_From) != read_all(_To)) { // failed to copy file
-                    _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
-                }
-
+                _FILESYSTEM_VERIFY(read_all(_From) == read_all(_To), "failed to copy the file", error_type::runtime_error);
                 return true;
             }
 
@@ -141,7 +138,7 @@ _NODISCARD bool copy(const path& _From, const path& _To, const copy_options _Opt
             _Ops.pTo    = _Dest.c_str();
             _Ops.wFunc  = FO_COPY;
 
-            if (_CSTD SHFileOperationW(&_Ops)) { // failed to copy directory replacing existing
+            if (SHFileOperationW(&_Ops)) { // failed to copy directory replacing existing
                 _Throw_fs_error("failed to copy directory", error_type::runtime_error, "copy");
             }
 
@@ -162,13 +159,10 @@ _NODISCARD bool copy(const path& _From, const path& _To, const copy_options _Opt
                 (void) clear(_To);
 
                 for (const auto& _Elem : read_all(_To)) {
-                    (void) write_back(_To, _Elem);
+                    (void) write_back(_To, _Elem.c_str());
                 }
 
-                if (read_all(_From) != read_all(_To)) { // failed to copy file creating hard link 
-                    _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
-                }
-
+                _FILESYSTEM_VERIFY(read_all(_From) == read_all(_To), "failed to copy the file", error_type::runtime_error);
                 return true;
             }
 
@@ -188,13 +182,10 @@ _NODISCARD bool copy(const path& _From, const path& _To, const copy_options _Opt
                 (void) clear(_To);
 
                 for (const auto& _Elem : read_all(_To)) {
-                    (void) write_back(_To, _Elem);
+                    (void) write_back(_To, _Elem.c_str());
                 }
 
-                if (read_all(_From) != read_all(_To)) { // failed to copy file creating hard link 
-                    _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
-                }
-
+                _FILESYSTEM_VERIFY(read_all(_From) == read_all(_To), "failed to copy the file", error_type::runtime_error);
                 return true;
             }
 
@@ -211,18 +202,15 @@ _NODISCARD bool copy(const path& _From, const path& _To, const copy_options _Opt
             (void) clear(_To);
 
             for (const auto& _Elem : read_all(_From)) {
-                (void) write_back(_To, _Elem);
+                (void) write_back(_To, _Elem.c_str());
             }
 
-            if (read_all(_To) != read_all(_From)) { // failed to copy file with replace attribute
-                _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
-            }
-
+            _FILESYSTEM_VERIFY(read_all(_From) == read_all(_To), "failed to copy the file", error_type::runtime_error);
             return true;
         }
 
         if ((_Options & copy_options::replace) == copy_options::replace && exists(_To)) { // remove old file and copy from source path
-            if (!_CSTD CopyFileW(_From.generic_wstring().c_str(), _To.generic_wstring().c_str(), false)) { // failed to copy file
+            if (!CopyFileW(_From.generic_wstring().c_str(), _To.generic_wstring().c_str(), false)) { // failed to copy file
                 _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
             }
 
@@ -266,53 +254,41 @@ _NODISCARD bool copy_file(const path& _From, const path& _To, const bool _Replac
         (void) clear(_To);
 
         for (const auto _Elem : read_all(_From)) {
-            (void) write_back(_To, _Elem);
+            (void) write_back(_To, _Elem.c_str());
         }
 
-        if (read_all(_From) != read_all(_To)) { // failed to copy file
-            _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy_file");
-        }
-
+        _FILESYSTEM_VERIFY(read_all(_From) == read_all(_To), "failed to copy the file", error_type::runtime_error);
         return true;
     } else { // don't touch old content
         const auto& _Src    = read_all(_From);
         const auto& _Result = read_all(_To); // content from _From and _To
         
-        const_cast<vector<path>&>(_Result).insert(_Result.end(), _Src.begin(), _Src.end());
+        const_cast<vector<string>&>(_Result).insert(_Result.end(), _Src.begin(), _Src.end());
 
         for (const auto& _Elem : read_all(_From)) {
-            (void) write_back(_To, _Elem);
+            (void) write_back(_To, _Elem.c_str());
         }
 
-        if (read_all(_To) != _Result) { // failed to copy file
-            _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy_file");
-        }
-
+        _FILESYSTEM_VERIFY(read_all(_To) == _Result, "failed to copy the file", error_type::runtime_error);
         return true;
     }
 }
 
 // FUNCTION copy_junction
 _NODISCARD bool copy_junction(const path& _Junction, const path& _Newjunction) {
-    if (!is_junction(_Junction)) { // junction not found
-        _Throw_fs_error("junction not found", error_type::runtime_error, "copy_junction");
-    }
-
+    _FILESYSTEM_VERIFY(is_junction(_Junction), "junction not found", error_type::runtime_error);
     return create_junction(read_junction(_Junction), _Newjunction);
 }
 
 // FUNCTION copy_symlink
 _NODISCARD bool copy_symlink(const path& _Symlink, const path& _Newsymlink) {
-    if (!is_symlink(_Symlink)) { // symbolic link not found
-        _Throw_fs_error("symbolic link not found", error_type::runtime_error, "copy_symlink");
-    }
-
+    _FILESYSTEM_VERIFY(is_symlink(_Symlink), "symbolic link not found", error_type::runtime_error);
     return create_symlink(read_symlink(_Symlink), _Newsymlink);
 }
 
 // FUNCTION create_directory
 _NODISCARD bool create_directory(const path& _Path) { // creates new directory
-    if (!_CSTD CreateDirectoryW(_Path.generic_wstring().c_str(), nullptr)) { // failed to create directory 
+    if (!CreateDirectoryW(_Path.generic_wstring().c_str(), nullptr)) { // failed to create directory 
         _Throw_fs_error("failed to create directory", error_type::runtime_error, "create_directory");
     }
 
@@ -325,15 +301,12 @@ _NODISCARD bool create_file(const path& _Path, const file_attributes _Attributes
         _Throw_fs_error("file already exists", error_type::runtime_error, "create_file");
     }
 
-    const HANDLE _Handle = _CSTD CreateFileW(_Path.generic_wstring().c_str(),
+    const HANDLE _Handle = CreateFileW(_Path.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::all), static_cast<unsigned long>(file_share::all),
         nullptr, static_cast<unsigned long>(file_disposition::only_new), static_cast<unsigned long>(_Attributes), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle)
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "create_file");
-    }
-
-    _CSTD CloseHandle(_Handle);
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
+    CloseHandle(_Handle);
 
     if (!exists(_Path)) { // failed to create file
         _Throw_fs_error("failed to create file", error_type::runtime_error, "create_file");
@@ -348,7 +321,7 @@ _NODISCARD bool create_file(const path& _Path) { // creates new file
 
 // FUNCTION create_hard_link
 _NODISCARD bool create_hard_link(const path& _To, const path& _Hardlink) { // creates hard link _Hardlink to _To
-    if (!_CSTD CreateHardLinkW(_Hardlink.generic_wstring().c_str(),
+    if (!CreateHardLinkW(_Hardlink.generic_wstring().c_str(),
         _To.generic_wstring().c_str(), nullptr)) { // failed to create hard link
         _Throw_fs_error("failed to create hard link", error_type::runtime_error, "create_hard_link");
     }
@@ -371,25 +344,22 @@ _NODISCARD bool create_junction(const path& _To, const path& _Junction) {
     // at the beginning _Junction must be created as default directory 
     (void) create_directory(_Junction);
 
-    const HANDLE _Handle = _CSTD CreateFileW(_Junction.generic_wstring().c_str(),
+    const HANDLE _Handle = CreateFileW(_Junction.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly | file_access::writeonly), 0, nullptr,
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "create_junction");
-    }
-
-    unsigned char _Buff[sizeof(reparse_data_buffer) + MAX_PATH * sizeof(wchar_t)];
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
+    unsigned char _Buff[sizeof(reparse_data_buffer) + _MAX_PATH * sizeof(wchar_t)];
     reparse_mountpoint_data_buffer& _Reparse_buff = reinterpret_cast<reparse_mountpoint_data_buffer&>(_Buff);
 
     // set informations about reparse point
     _CSTD memset(_Buff, 0, sizeof(_Buff));
-
+    
     // _Junction must containts prefix ("\??\") and sufix ("\"), to create junction successfully
     _Reparse_buff._Reparse_tag                   = static_cast<unsigned long>(file_reparse_tag::mount_point);
-    int _Len                                     = _CSTD MultiByteToWideChar(static_cast<uint32_t>(code_page::acp), 0,
-        path(R"(\??\)" + _To.generic_string() + R"(\)").generic_string().c_str(), -1, _Reparse_buff._Reparse_target, MAX_PATH);
+    int _Len                                     = MultiByteToWideChar(static_cast<uint32_t>(code_page::acp), 0,
+        path(R"(\??\)" + _To.generic_string() + R"(\)").generic_string().c_str(), -1, _Reparse_buff._Reparse_target, _MAX_PATH);
     _Reparse_buff._Reparse_target_maximum_length = static_cast<uint16_t>((_Len--) * sizeof(wchar_t));
     _Reparse_buff._Reparse_target_length         = static_cast<uint16_t>(_Len * sizeof(wchar_t));
     _Reparse_buff._Reparse_data_length           = _Reparse_buff._Reparse_target_length + 12;
@@ -398,21 +368,17 @@ _NODISCARD bool create_junction(const path& _To, const path& _Junction) {
     unsigned long _Bytes; // returned bytes from DeviceIoControl()
 
     // don't check result of DeviceIoControl(), because next function will check it better
-    _CSTD DeviceIoControl(_Handle, FSCTL_SET_REPARSE_POINT, &_Reparse_buff,
+    DeviceIoControl(_Handle, FSCTL_SET_REPARSE_POINT, &_Reparse_buff,
         _Reparse_buff._Reparse_data_length + 8 /* REPARSE_MOUNTPOINT_HEADER_SIZE */, nullptr, 0, &_Bytes, nullptr);
-    _CSTD CloseHandle(_Handle);
-
-    if (!is_junction(_Junction)) { // failed to create junction
-        _Throw_fs_error("failed to create junction", error_type::runtime_error, "create_junction");
-    }
-
+    CloseHandle(_Handle);
+    _FILESYSTEM_VERIFY(is_junction(_Junction), "failed to create the junction", error_type::runtime_error);
     return true;
 }
 #pragma warning(pop)
 
 // FUNCTION create_symlink
 _NODISCARD bool create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags) {
-    if (!_CSTD CreateSymbolicLinkW(_Symlink.generic_wstring().c_str(),
+    if (!CreateSymbolicLinkW(_Symlink.generic_wstring().c_str(),
         _To.generic_wstring().c_str(), static_cast<unsigned long>(_Flags))) { // failed to create symbolic link
         _Throw_fs_error("failed to create symlink", error_type::runtime_error, "create_symlink");
     }
@@ -427,8 +393,8 @@ _NODISCARD bool create_symlink(const path& _To, const path& _Symlink) {
 
 // FUNCTION remove
 _NODISCARD bool remove(const path& _Path) { // removes files and directories
-    if (_Is_directory(_Path) ? !_CSTD RemoveDirectoryW(_Path.generic_wstring().c_str())
-        : !_CSTD DeleteFileW(_Path.generic_wstring().c_str())) { // failed to remove target
+    if (_Is_directory(_Path) ? !RemoveDirectoryW(_Path.generic_wstring().c_str())
+        : !DeleteFileW(_Path.generic_wstring().c_str())) { // failed to remove target
         _Throw_fs_error("failed to remove target", error_type::runtime_error, "remove");
     }
 
@@ -466,7 +432,7 @@ _NODISCARD bool remove_all(const path& _Path) { // removes directory with all co
     _Ops.pTo                   = nullptr;
     _Ops.wFunc                 = FO_DELETE;
 
-    if (_CSTD SHFileOperationW(&_Ops)) { // failed to remove directory (failed if return value is non-zero)
+    if (SHFileOperationW(&_Ops)) { // failed to remove directory (failed if return value is non-zero)
         _Throw_fs_error("failed to remove directory", error_type::runtime_error, "remove_all");
     }
 
@@ -480,15 +446,12 @@ _NODISCARD bool remove_junction(const path& _Target) {
         _Throw_fs_error("expected junction", error_type::runtime_error, "remove_junction");
     }
 
-    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly | file_access::writeonly), 0, nullptr,
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "remove_junction");
-    }
-
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
     unsigned char _Buff[8 /* REPARSE_MOUNTPOINT_HEADER_SIZE */];
     reparse_mountpoint_data_buffer& _Reparse_buff = reinterpret_cast<reparse_mountpoint_data_buffer&>(_Buff);
     unsigned long _Bytes; // returned bytes from DeviceIoControl()
@@ -497,13 +460,13 @@ _NODISCARD bool remove_junction(const path& _Target) {
     _CSTD memset(_Buff, 0, sizeof(_Buff));
     _Reparse_buff._Reparse_tag = static_cast<unsigned long>(file_reparse_tag::mount_point);
 
-    if (!_CSTD DeviceIoControl(_Handle, FSCTL_DELETE_REPARSE_POINT, &_Reparse_buff, 8 /* REPARSE_MOUNTPOINT_HEADER_SIZE */,
+    if (!DeviceIoControl(_Handle, FSCTL_DELETE_REPARSE_POINT, &_Reparse_buff, 8 /* REPARSE_MOUNTPOINT_HEADER_SIZE */,
         nullptr, 0, &_Bytes, nullptr) || is_junction(_Target)) { // failed to remove junction
-        _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
+        CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to remove junction", error_type::runtime_error, "remove_junction");
     }
 
-    _CSTD CloseHandle(_Handle);
+    CloseHandle(_Handle);
     return true;
 }
 
@@ -517,38 +480,32 @@ _NODISCARD bool remove_line(const path& _Target, const uintmax_t _Line) { // rem
         _Throw_fs_error("expected file", error_type::runtime_error, "remove_line");
     }
 
-    const auto& _All      = read_all(_Target);
-    const auto& _Count    = _All.size();
-    const auto& _Expected = _Count - 1; // count of lines after removed
+    const auto& _All       = read_all(_Target);
+    const size_t _Count    = _All.size();
+    const size_t _Expected = _Count - 1; // count of lines after removed
 
-    if (_Line < 1 || _Line > _Count || _Expected < 0) { // invalid line
-        _Throw_fs_error("invalid line", error_type::invalid_argument, "remove_line");
-    }
-
+    _FILESYSTEM_VERIFY(_Line > 0 && _Line <= _Count && _Expected >= 0, "invalid line", error_type::runtime_error);
     // Clear _Target and write to him the newest content.
     // Use resize_file() instead of clear(), because we know that _Target is a file.
     (void) resize_file(_Target, 0);
 
     for (size_t _Idx = 0; _Idx < _Count; ++_Idx) {
         if (_Idx + 1 != _Line) { // skip removed line
-            (void) write_back(_Target, _All[_Idx]);
+            (void) write_back(_Target, _All[_Idx].c_str());
         }
     }
 
-    if (lines_count(_Target) != _Expected) { // failed to remove line
-        _Throw_fs_error("failed to remove line", error_type::runtime_error, "remove_line");
-    }
-
+    _FILESYSTEM_VERIFY(lines_count(_Target) == _Expected, "failed to remove the line", error_type::runtime_error);
     return true;
 }
 
 // FUNCTION rename
 _NODISCARD bool rename(const path& _Old, const path& _New, const rename_options _Flags) { // renames _Old to _New
-    if (!_CSTD MoveFileExW(_Old.generic_wstring().c_str(), _New.generic_wstring().c_str(),
+    if (!MoveFileExW(_Old.generic_wstring().c_str(), _New.generic_wstring().c_str(),
         static_cast<unsigned long>(_Flags))) { // failed to rename
         _Throw_fs_error("failed to rename", error_type::runtime_error, "rename");
     }
-
+    
     return true;
 }
 

@@ -3,7 +3,7 @@
 // Copyright (c) Mateusz Jandura. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-#include <pch.h>
+#include <filesystem_pch.hpp>
 #include <filesystem.hpp>
 
 #if !_HAS_WINDOWS
@@ -38,7 +38,7 @@ void file_status::_Init() noexcept {
 
 // FUNCTION file_status::_Refresh
 void file_status::_Refresh() noexcept {
-    _Update_attribute(file_attributes{_CSTD GetFileAttributesW(_Mypath.generic_wstring().c_str())});
+    _Update_attribute(file_attributes{GetFileAttributesW(_Mypath.generic_wstring().c_str())});
 
     // If _Mypath not found, GetFileAttributeW() will return INVALID_FILE_ATTRIBUTES.
     // Don't use GetLastError() to check if _Mypath exists, because some functions
@@ -69,22 +69,19 @@ void file_status::_Refresh() noexcept {
         reparse_data_buffer& _Reparse_buff = reinterpret_cast<reparse_data_buffer&>(_Buff);
         unsigned long _Bytes; // returned bytes from DeviceIoControl()
 
-        const HANDLE _Handle = _CSTD CreateFileW(_Mypath.generic_wstring().c_str(),
+        const HANDLE _Handle = CreateFileW(_Mypath.generic_wstring().c_str(),
             static_cast<unsigned long>(file_access::all), static_cast<unsigned long>(file_share::read),
             nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
                 file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
-        if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-            _Throw_fs_error("failed to get handle", error_type::runtime_error, "_Refresh");
-        }
-
+        _FILESYSTEM_VERIFY_HANDLE(_Handle);
         if (!_CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
             &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to get informations
-            _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
+            CloseHandle(_Handle); // should be closed even if function will throw an exception
             _Throw_fs_error("failed to get informations", error_type::runtime_error, "_Refresh");
         }
         
-        _CSTD CloseHandle(_Handle);
+        CloseHandle(_Handle);
 
         if (_Reparse_buff._Reparse_tag == static_cast<unsigned long>(file_reparse_tag::mount_point)) {
             _Update_type(file_type::junction);
@@ -169,19 +166,16 @@ void directory_data::_Refresh() noexcept {
     }
 
     WIN32_FIND_DATAW _Data;
-    const HANDLE _Handle = _CSTD FindFirstFileExW(path(_Mypath + LR"(\*)").generic_wstring().c_str(),
+    const HANDLE _Handle = FindFirstFileExW(path(_Mypath + LR"(\*)").generic_wstring().c_str(),
         FindExInfoBasic, &_Data, FindExSearchNameMatch, nullptr, 0);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "_Refresh");
-    }
-
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
     vector<path> _All;
 
     do { // get all types, they will be separated later
         _All.push_back(static_cast<const wchar_t*>(_Data.cFileName));
-    } while (_CSTD FindNextFileW(_Handle, &_Data));
-    _CSTD FindClose(_Handle);
+    } while (FindNextFileW(_Handle, &_Data));
+    FindClose(_Handle);
 
     _Reset(); // clear everything
     if (_All.empty()) { // nothing to do if directory is empty
@@ -290,7 +284,7 @@ _NODISCARD bool change_attributes(const path& _Target, const file_attributes _Ne
         _Throw_fs_error("path not found", error_type::runtime_error, "change_attributes");
     }
 
-    if (!_CSTD SetFileAttributesW(_Target.generic_wstring().c_str(),
+    if (!SetFileAttributesW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(_Newattr))) { // failed to change attributes
         _Throw_fs_error("failed to change attributes", error_type::runtime_error, "change_attributes");
     }
@@ -321,7 +315,7 @@ _NODISCARD bool change_permissions(const path& _Target, const file_permissions _
     }
 
     // if _Inc_old is true, add new attribute to existing
-    if (!_CSTD SetFileAttributesW(_Target.generic_wstring().c_str(),
+    if (!SetFileAttributesW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(_Attr))) { // failed to set new permissions
         _Throw_fs_error("failed to set new permissions", error_type::runtime_error, "change_permissions");
     }
@@ -339,32 +333,29 @@ _NODISCARD file_time creation_time(const path& _Target) {
         _Throw_fs_error("path not found", error_type::runtime_error, "creation_time");
     }
 
-    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
         nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "creation_time");
-    }
-
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
     FILETIME _File_time;
-    if (!_CSTD GetFileTime(_Handle, &_File_time, nullptr, nullptr)) { // failed to get file time
-        _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
+    if (!GetFileTime(_Handle, &_File_time, nullptr, nullptr)) { // failed to get file time
+        CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to get file time", error_type::runtime_error, "creation_time");
     }
 
-    _CSTD CloseHandle(_Handle);
+    CloseHandle(_Handle);
 
     SYSTEMTIME _Sys_gen_time; // general system time
     SYSTEMTIME _Sys_exact_time; // system time in user region
 
-    if (!_CSTD FileTimeToSystemTime(&_File_time, &_Sys_gen_time)) { // failed to convert time
+    if (!FileTimeToSystemTime(&_File_time, &_Sys_gen_time)) { // failed to convert time
         _Throw_fs_error("failed to convert file time to system time", error_type::runtime_error, "creation_time");
     }
 
     // now we have to convert general system time to system time in user region
-    if (!_CSTD SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) { // failed to convert time
+    if (!SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) { // failed to convert time
         _Throw_fs_error("failed to convert general system time to exact system time",
             error_type::runtime_error, "creation_time");
     }
@@ -381,40 +372,36 @@ _NODISCARD bool equivalent(const path& _Left, const path& _Right) {
 
     file_id _Left_id;
     {
-        const HANDLE _Handle = _CSTD CreateFileW(_Left.generic_wstring().c_str(),
+        const HANDLE _Handle = CreateFileW(_Left.generic_wstring().c_str(),
             static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(
             file_share::read), nullptr, static_cast<unsigned long>(file_disposition::only_if_exists),
             static_cast<unsigned long>(file_flags::backup_semantics), nullptr); // don't use file_flags::open_reparse_point
 
-        if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-            _Throw_fs_error("failed to get handle", error_type::runtime_error, "equivalent");
-        }
-
-        if (!_CSTD GetFileInformationByHandleEx(_Handle, FileIdInfo, &_Left_id,
+        _FILESYSTEM_VERIFY_HANDLE(_Handle);
+        if (!GetFileInformationByHandleEx(_Handle, FileIdInfo, &_Left_id,
             sizeof(_Left_id))) { // failed to get informations
-            _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
+            CloseHandle(_Handle); // should be closed even if function will throw an exception
             _Throw_fs_error("failed to get informations", error_type::runtime_error, "equivalent");
         }
-        _CSTD CloseHandle(_Handle);
+
+        CloseHandle(_Handle);
     }
 
     file_id _Right_id;
     {
-        const HANDLE _Handle = _CSTD CreateFileW(_Right.generic_wstring().c_str(),
+        const HANDLE _Handle = CreateFileW(_Right.generic_wstring().c_str(),
             static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(
             file_share::read), nullptr, static_cast<unsigned long>(file_disposition::only_if_exists),
             static_cast<unsigned long>(file_flags::backup_semantics), nullptr); // don't use file_flags::open_reparse_point
 
-        if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-            _Throw_fs_error("failed to get handle", error_type::runtime_error, "equivalent");
-        }
-
-        if (!_CSTD GetFileInformationByHandleEx(_Handle, FileIdInfo, &_Right_id,
+        _FILESYSTEM_VERIFY_HANDLE(_Handle);
+        if (!GetFileInformationByHandleEx(_Handle, FileIdInfo, &_Right_id,
             sizeof(_Right_id))) { // failed to get informations
-            _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
+            CloseHandle(_Handle); // should be closed even if function will throw an exception
             _Throw_fs_error("failed to get informations", error_type::runtime_error, "equivalent");
         }
-        _CSTD CloseHandle(_Handle);
+        
+        CloseHandle(_Handle);
     }
 
     return _CSTD memcmp(&_Left_id, &_Right_id, sizeof(file_id)) == 0;
@@ -430,17 +417,13 @@ _NODISCARD size_t file_size(const path& _Target) {
         _Throw_fs_error("expected file", error_type::runtime_error, "file_size");
     }
 
-    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(), static_cast<unsigned long>(file_access::readonly),
+    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(), static_cast<unsigned long>(file_access::readonly),
         static_cast<unsigned long>(file_share::read), nullptr, static_cast<unsigned long>(file_disposition::only_if_exists),
         static_cast<unsigned long>(file_flags::open_reparse_point), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "file_size");
-    }
-
-    const auto _Size{static_cast<size_t>(_CSTD GetFileSize(_Handle, nullptr))};
-    _CSTD CloseHandle(_Handle);
-
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
+    const auto _Size{static_cast<size_t>(GetFileSize(_Handle, nullptr))};
+    CloseHandle(_Handle);
     return _Size;
 }
 
@@ -455,21 +438,18 @@ _NODISCARD bool exists(const path& _Target) noexcept {
 
 // FUNCTION hard_link_count
 _NODISCARD uintmax_t hard_link_count(const path& _Target, const file_flags _Flags) { // counts hard links to _Target
-    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read), nullptr,
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(_Flags), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "hard_link_count");
-    }
-
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
     FILE_STANDARD_INFO _Info;
-    if (!_CSTD GetFileInformationByHandleEx(_Handle, FileStandardInfo, &_Info, sizeof(_Info))) {
-        _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
+    if (!GetFileInformationByHandleEx(_Handle, FileStandardInfo, &_Info, sizeof(_Info))) {
+        CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to get informations", error_type::runtime_error, "hard_link_count");
     }
     
-    _CSTD CloseHandle(_Handle);
+    CloseHandle(_Handle);
     return static_cast<uintmax_t>(_Info.NumberOfLinks);
 }
 
@@ -569,32 +549,29 @@ _NODISCARD file_time last_access_time(const path& _Target) {
         _Throw_fs_error("path not found", error_type::runtime_error, "last_access_time");
     }
 
-    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
         nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "last_access_time");
-    }
-
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
     FILETIME _File_time;
-    if (!_CSTD GetFileTime(_Handle, nullptr, &_File_time, nullptr)) { // failed to get file time
-        _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
+    if (!GetFileTime(_Handle, nullptr, &_File_time, nullptr)) { // failed to get file time
+        CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to get file time", error_type::runtime_error, "last_access_time");
     }
 
-    _CSTD CloseHandle(_Handle);
+    CloseHandle(_Handle);
 
     SYSTEMTIME _Sys_gen_time; // general system time
     SYSTEMTIME _Sys_exact_time; // system time in user region
 
-    if (!_CSTD FileTimeToSystemTime(&_File_time, &_Sys_gen_time)) { // failed to convert time
+    if (!FileTimeToSystemTime(&_File_time, &_Sys_gen_time)) { // failed to convert time
         _Throw_fs_error("failed to convert file time to system time", error_type::runtime_error, "last_access_time");
     }
 
     // now we have to convert general system time to system time in user region
-    if (!_CSTD SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) {
+    if (!SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) {
         // failed to convert general system time to exact system time
         _Throw_fs_error("failed to convert general system time to exact system time",
             error_type::runtime_error, "last_access_time");
@@ -610,32 +587,29 @@ _NODISCARD file_time last_write_time(const path& _Target) {
         _Throw_fs_error("path not found", error_type::runtime_error, "last_write_time");
     }
 
-    const HANDLE _Handle = _CSTD CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
         nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
-    if (_Handle == INVALID_HANDLE_VALUE) { // failed to get handle
-        _Throw_fs_error("failed to get handle", error_type::runtime_error, "last_write_time");
-    }
-
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
     FILETIME _File_time;
-    if (!_CSTD GetFileTime(_Handle, nullptr, nullptr, &_File_time)) { // failed to get file time
-        _CSTD CloseHandle(_Handle); // should be closed even if function will throw an exception
+    if (!GetFileTime(_Handle, nullptr, nullptr, &_File_time)) { // failed to get file time
+        CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to get file time", error_type::runtime_error, "last_write_time");
     }
 
-    _CSTD CloseHandle(_Handle);
+    CloseHandle(_Handle);
 
     SYSTEMTIME _Sys_gen_time; // general system time
     SYSTEMTIME _Sys_exact_time; // system time in user region
 
-    if (!_CSTD FileTimeToSystemTime(&_File_time, &_Sys_gen_time)) { // failed to convert time
+    if (!FileTimeToSystemTime(&_File_time, &_Sys_gen_time)) { // failed to convert time
         _Throw_fs_error("failed to convert file time to system time", error_type::runtime_error, "last_write_time");
     }
 
     // now we have to convert general system time to system time in user region
-    if (!_CSTD SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) {
+    if (!SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) {
         // failed to convert general system time to exact system time
         _Throw_fs_error("failed to convert general system time to exact system time",
             error_type::runtime_error, "last_write_time");
@@ -652,7 +626,7 @@ _NODISCARD disk_space space(const path& _Target) {
     const auto _Capacity  = reinterpret_cast<PULARGE_INTEGER>(&_Result.capacity);
     const auto _Free      = reinterpret_cast<PULARGE_INTEGER>(&_Result.free);
 
-    if (!_CSTD GetDiskFreeSpaceExW(_Target.generic_wstring().c_str(), _Available,
+    if (!GetDiskFreeSpaceExW(_Target.generic_wstring().c_str(), _Available,
         _Capacity, _Free)) { // failed to get informations
         _Throw_fs_error("failed to get informations", error_type::runtime_error, "space");
     }
