@@ -93,7 +93,6 @@ template <class _CharTy>
 path::path(const _CharTy* const _Source) {
     // _CharTy must be an character (char/char8_t/char16_t/char32_t/wchar_t) type
     static_assert(_Is_char_t<_CharTy>, "invalid character type");
-
     _Mytext = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Source);
     _Check_size();
 }
@@ -108,7 +107,6 @@ template <class _Src>
 path::path(const _Src& _Source) {
     // _Src must be an string (basic_string/basic_string_view) type
     static_assert(_Is_src_t<_Src>, "invalid string type");
-
     _Mytext = _Convert_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Source.data());
     _Check_size();
 } 
@@ -147,7 +145,6 @@ template <class _CharTy>
 path& path::operator=(const _CharTy* const _Source) {
     // _CharTy must be an character (char/char8_t/char16_t/char32_t/wchar_t) type
     static_assert(_Is_char_t<_CharTy>, "invalid character type");
-    
     _Mytext = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Source);
     _Check_size();
     return *this;
@@ -163,7 +160,6 @@ template<class _Src>
 path& path::operator=(const _Src& _Source) {
     // _Src must be an string (basic_string/basic_string_view) type
     static_assert(_Is_src_t<_Src>, "invalid string type");
-
     _Mytext = _Convert_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Source.data());
     _Check_size();
     return *this;
@@ -230,7 +226,6 @@ template <class _CharTy>
 path& path::operator+=(const _CharTy* const _Added) {
     // _CharTy must be an character (char/char8_t/char16_t/char32_t/wchar_t) type
     static_assert(_Is_char_t<_CharTy>, "invalid character type");
-
     _Mytext += _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Added);
     _Check_size();
     return *this;
@@ -246,7 +241,6 @@ template <class _Src>
 path& path::operator+=(const _Src& _Added) {
     // _Src must be an string (basic_string/basic_string_view) type
     static_assert(_Is_src_t<_Src>, "invalid string type");
-
     _Mytext += _Convert_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Added.data());
     _Check_size();
     return *this;
@@ -384,6 +378,29 @@ constexpr void path::clear() noexcept {
     _Mytext.clear();
 }
 
+// same as string[_view]::npos
+#ifndef _NPOS
+#define _NPOS static_cast<size_t>(-1)
+#endif // _NPOS
+
+// FUNCTION path::directory
+_NODISCARD path path::directory() const noexcept {
+    if (has_directory()) {
+        const size_t _Pos{_Mytext.find_last_of(_Expected_slash)};
+        if (_Pos == _NPOS) { // the path contain only one directory
+            return _Mytext;
+        }
+
+        if (_Pos == _Mytext.size() - 1) { // slash on the last position
+            return R"(\)";
+        }
+
+        return string_type(_Mytext, _Pos + 1, _Mytext.size() - 1);
+    }
+
+    return string_type();
+}
+
 // FUNCTION path::drive
 _NODISCARD path path::drive() const noexcept {
     // if has drive then first letter is drive
@@ -400,9 +417,6 @@ _NODISCARD path path::extension() const noexcept {
     // if has extension, then everything after last dot is extension
     return has_extension() ? string_type(_Mytext, _Mytext.find_last_of(".") + 1, _Mytext.size()) : string_type();
 }
-
-// same as string[_view]::npos
-#define _NPOS static_cast<size_t>(-1)
 
 // FUNCTION path::file
 _NODISCARD path path::file() const noexcept {
@@ -459,6 +473,15 @@ _NODISCARD const wstring path::generic_wstring() const {
     return _Convert_narrow_to_wide(code_page::utf8, _Mytext.data());
 }
 
+// FUNCTION path::has_directory
+_NODISCARD bool path::has_directory() const noexcept {
+    if (empty() || has_file()) { // the directory must on the last position
+        return false;
+    } else { // if has the drive, then must be longer than 3 characters ("D:\")
+        return has_drive() ? _Mytext.size() > 3 : true;
+    }
+}
+
 // FUNCTION path::has_drive
 _NODISCARD bool path::has_drive() const noexcept {
     if (_Mytext.size() < 3) { // requires minimum 3 characters
@@ -488,7 +511,7 @@ _NODISCARD bool path::has_drive() const noexcept {
 // FUNCTION path::has_extension
 _NODISCARD bool path::has_extension() const noexcept {
     if (_Mytext.find(".") != _NPOS) {
-        const size_t _Dot_pos = _Mytext.find_last_of(".");
+        const size_t _Dot_pos{_Mytext.find_last_of(".")};
 
         // example of this case:
         // "Disk:\Directory\Subdirectory."
@@ -597,6 +620,19 @@ _NODISCARD path path::parent_path() const noexcept {
     return string_type();
 }
 
+// FUNCTION path::remove_directory
+_NODISCARD path& path::remove_directory(const bool _With_slash) noexcept {
+    if (has_directory()) {
+        if (_Mytext.find(_Expected_slash) == _NPOS) {
+            _Mytext.clear();
+        } else {
+            _Mytext.resize(_Mytext.find_last_of(_Expected_slash) + (_With_slash ? 0 : 1));
+        }
+    }
+
+    return *this;
+}
+
 // FUNCTION path::remove_extension
 _NODISCARD path& path::remove_extension() noexcept {
     if (has_extension()) {
@@ -613,6 +649,17 @@ _NODISCARD path& path::remove_file(const bool _With_slash) noexcept {
         _Mytext.find(_Expected_slash) != _NPOS ?
             _Mytext.resize(_With_slash ? _Mytext.find_last_of(_Expected_slash)
                 : _Mytext.find_last_of(_Expected_slash) + 1) : clear();
+    }
+
+    return *this;
+}
+
+// FUNCTION path::replace_directory
+_NODISCARD path& path::replace_directory(const path& _Replacement) {
+    if (has_directory()) {
+        (void) remove_directory(false);
+        _Mytext += _Replacement._Mytext;
+        _Check_size();
     }
 
     return *this;
@@ -646,7 +693,6 @@ _NODISCARD path& path::replace_file(const path& _Replacement) {
 _NODISCARD path& path::replace_stem(const path& _Replacement) {
     if (has_stem()) {
         const auto& _Ext{extension()};
-
         (void) remove_file(false);
         _Mytext += _Replacement._Mytext;
         _Mytext += "." + _Ext._Mytext;
@@ -683,8 +729,7 @@ _NODISCARD constexpr size_t path::size() const noexcept {
 // FUNCTION path::stem
 _NODISCARD path path::stem() const noexcept {
     if (has_stem()) {
-        auto _Stem = _Mytext; // don't change original text
-
+        auto _Stem{_Mytext}; // don't change original text
         if (_Stem.find_last_of(_Expected_slash) != _NPOS) {
             _Stem.replace(0, _Stem.find_last_of(_Expected_slash) + 1, string_type()); // leave only filename with extension
             _Stem.resize(_Stem.find_last_of(".")); // remove extension
@@ -702,11 +747,13 @@ _NODISCARD path path::stem() const noexcept {
 // FUNCTION current_path
 _NODISCARD path current_path() noexcept {
     wchar_t _Buff[_MAX_PATH];
-    if (!GetCurrentDirectoryW(_MAX_PATH, _Buff)) { // failed to get current path
+    if (!GetModuleFileNameW(nullptr, _Buff, _MAX_PATH)) { // failed to get current path
         _Throw_fs_error("failed to get current path", error_type::runtime_error, "current_path");
     }
-
-    return path(static_cast<const wchar_t*>(_Buff));
+    
+    path _Path{static_cast<const wchar_t*>(_Buff)};
+    (void) _Path.remove_file(true);
+    return _Path;
 }
 
 _NODISCARD bool current_path(const path& _Path) { // sets new current path

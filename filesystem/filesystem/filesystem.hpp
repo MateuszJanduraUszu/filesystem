@@ -323,101 +323,113 @@ public:
     template <class _Src>
     bool operator!=(const _Src& _Compare) const;
 
-    // clears current working path
+    // clears the current working path
     constexpr void clear() noexcept;
 
-    // returns drive from current working path (if has)
+    // returns the directory from the current working path (if has)
+    _NODISCARD path directory() const noexcept;
+
+    // returns the drive from the current working path (if has)
     _NODISCARD path drive() const noexcept;
 
-    // checks if current working path is empty
+    // checks if the current working path is empty
     _NODISCARD constexpr bool empty() const noexcept;
 
-    // returns extension from current working path (if has)
+    // returns the extension from the current working path (if has)
     _NODISCARD path extension() const noexcept;
 
-    // returns filename from current working path (if has)
+    // returns the filename from current the working path (if has)
     _NODISCARD path file() const noexcept;
 
-    // removes unnecessary slashes from current working path
-    // and converts to Windows 10 standard
+    // removes unnecessary slashes from the current working path
+    // and converts to the Windows 10 standard
     _NODISCARD path& fix() noexcept;
 
-    // returns current working path as string
+    // returns the current working path as string
     _NODISCARD const string generic_string() const noexcept;
 
-    // returns current working path as u8string
+    // returns the current working path as u8string
     _NODISCARD const u8string generic_u8string() const;
 
-    // returns current working path as u16string
+    // returns the current working path as u16string
     _NODISCARD const u16string generic_u16string() const;
 
-    // returns current working path as u32string
+    // returns the current working path as u32string
     _NODISCARD const u32string generic_u32string() const;
 
-    // returns current working path as wstring
+    // returns the current working path as wstring
     _NODISCARD const wstring generic_wstring() const;
 
-    // checks if current working path has drive
+    // checks if the current working path has the directory
+    _NODISCARD bool has_directory() const noexcept;
+
+    // checks if the current working path has the drive
     _NODISCARD bool has_drive() const noexcept;
 
-    // checks if current working path has extension
+    // checks if the current working path has the extension
     _NODISCARD bool has_extension() const noexcept;
     
-    // checks if current working path has file
+    // checks if the current working path has the file
     _NODISCARD bool has_file() const noexcept;
 
-    // checks if current working path has parent directory
+    // checks if the current working path has the parent directory
     _NODISCARD bool has_parent_directory() const noexcept;
 
-    // checks if current working path has root directory
+    // checks if the current working path has the root directory
     _NODISCARD bool has_root_directory() const noexcept;
 
-    // checks if current working path has stem (filename without extension)
+    // checks if the current working path has the stem (filename without extension)
     _NODISCARD bool has_stem() const noexcept;
 
-    // checks if current working path is absolute
+    // checks if the current working path is absolute
     _NODISCARD bool is_absolute() const noexcept;
     
-    // checks if current working path is relative
+    // checks if the current working path is relative
     _NODISCARD bool is_relative() const noexcept;
 
-    // converts current working path to Windows 10 standard
+    // converts the current working path to the Windows 10 standard
     _NODISCARD path& make_preferred() noexcept;
 
-    // returns parent directory from current working path
+    // returns the parent directory from the current working path
     _NODISCARD path parent_directory() const noexcept;
 
-    // returns parent path from current working path
+    // returns the parent path from the current working path
     _NODISCARD path parent_path() const noexcept;
 
-    // removes extension from current working path (if has)
+    // removes the directory from the current working path (if has)
+    _NODISCARD path& remove_directory(const bool _With_slash = true) noexcept;
+
+    // removes the extension from the current working path (if has)
     _NODISCARD path& remove_extension() noexcept;
 
-    // removes filename from current working path (if has) (removes slash, if has and _With_slash is true)
-    _NODISCARD path& remove_file(const bool _With_slash) noexcept;
+    // removes the filename from the current working path (if has) (removes slash, if has and _With_slash is true)
+    _NODISCARD path& remove_file(const bool _With_slash = true) noexcept;
 
-    // replaces extension from current working path with replacement (if has extension)
+    // replaces the directory from the current working path with the replacement (if has)
+    _NODISCARD path& replace_directory(const path& _Replacement);
+
+    // replaces the extension from the current working path with the replacement (if has)
     _NODISCARD path& replace_extension(const path& _Replacement);
 
-    // replaces filename from current working path with replacement (if has filename)
+    // replaces the filename from the current working path with the replacement (if has)
     _NODISCARD path& replace_file(const path& _Replacement);
 
-    // replaces stem from current working path with replacement (if has stem)
+    // replaces the stem from the current working path with the replacement (if has)
     _NODISCARD path& replace_stem(const path& _Replacement);
 
-    // resizes path to _Newsize
+    // resizes the path to _Newsize
     constexpr void resize(const size_t _Newsize, const value_type _Ch = value_type(0));
 
-    // returns root directory from current working path (if has)
+    // returns the root directory from the current working path (if has)
     _NODISCARD path root_directory() const noexcept;
 
-    // returns root path from current working path
+    // returns the root path from the current working path (if has)
     _NODISCARD path root_path() const noexcept;
 
-    // returns size of current working path
+    // returns the size of the current working path
     _NODISCARD constexpr size_t size() const noexcept;
 
-    // returns stem (file name without extension) from current working path (if has)
+    // returns the stem (file name without the extension) from the current working path (if has)
     _NODISCARD path stem() const noexcept;
 
 private:
@@ -454,7 +466,7 @@ private:
 #pragma warning(push)
 #pragma warning(disable : 4455) // C4455: reserved name
 namespace path_literals {
-    // FUNCTION operator""__p
+    // FUNCTION operator""p
     _FILESYSTEM_API _NODISCARD path operator""p(const char* const _Str, const size_t _Size) noexcept;
     _FILESYSTEM_API _NODISCARD path operator""p(const char8_t* const _Str, const size_t _Size) noexcept;
     _FILESYSTEM_API _NODISCARD path operator""p(const char16_t* const _Str, const size_t _Size) noexcept;
