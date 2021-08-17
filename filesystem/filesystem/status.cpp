@@ -75,7 +75,7 @@ void file_status::_Refresh() noexcept {
                 file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
 
         _FILESYSTEM_VERIFY_HANDLE(_Handle);
-        if (!_CSTD DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+        if (!DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
             &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to get informations
             CloseHandle(_Handle); // should be closed even if function will throw an exception
             _Throw_fs_error("failed to get informations", error_type::runtime_error, "_Refresh");
@@ -617,6 +617,97 @@ _NODISCARD file_time last_write_time(const path& _Target) {
 
     return {_Sys_exact_time.wYear, _Sys_exact_time.wMonth, _Sys_exact_time.wDay,
         _Sys_exact_time.wHour, _Sys_exact_time.wMinute, _Sys_exact_time.wSecond};
+}
+
+// FUNCTION shortcut_parameters
+_NODISCARD shortcut_data shortcut_parameters(const path& _Target) {
+    if (!exists(_Target)) {
+        _Throw_fs_error("shortcut not found", error_type::runtime_error, "shortcut_parameters");
+    }
+
+    if (_Target.extension() != "lnk") { // shortcut_parameters() is reserved for files with LNK extension (link) only
+        _Throw_fs_error("expected link", error_type::runtime_error, "shortcut_parameters");
+    }
+
+    IShellLinkW* _Link     = {};
+    WIN32_FIND_DATAW _Data = {}; // warning 6001 if not defined
+    shortcut_data _Result  = {};
+    // this functions will replace characters; size must be defined before calling them
+    _Result.arguments.resize(INFOTIPSIZE);
+    _Result.description.resize(INFOTIPSIZE);
+    _Result.directory.resize(_MAX_PATH);
+
+    _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
+        reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
+    IPersistFile* _File;
+    wstring _Buff; // buffer for shortcut icon/target path
+    _Buff.resize(_MAX_PATH); // resize before calling GetIconLocation()
+
+    _FILESYSTEM_VERIFY(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)) == S_OK,
+        "failed to query interface", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_File->Load(_Target.generic_wstring().c_str(), STGM_READ) == S_OK,
+        "failed to load the shortcut", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->Resolve(nullptr, 0) == S_OK, "failed to find shortcut target", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->GetArguments(_Result.arguments.data(), INFOTIPSIZE) == S_OK,
+        "failed to get shortcut arguments", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->GetDescription(_Result.description.data(), INFOTIPSIZE) == S_OK,
+        "failed to get shortcut description", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->GetHotkey(&_Result.hotkey) == S_OK, "failed to get shortcut key", error_type::runtime_error);
+    _Buff.resize(_MAX_PATH); // set default buffer size
+    _FILESYSTEM_VERIFY(_Link->GetIconLocation(_Buff.data(), _MAX_PATH, &_Result.icon) == S_OK,
+        "failed to get icon", error_type::runtime_error);
+    _Result.icon_path = _Buff;
+    _Buff.resize(_MAX_PATH); // restore buffer size
+    _FILESYSTEM_VERIFY(_Link->GetIDList(&_Result.id_list) == S_OK, "failed to get ID list", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->GetPath(_Buff.data(), _MAX_PATH, &_Data, STGM_READ) == S_OK,
+        "failed to get shortcut target path", error_type::runtime_error);
+    _Result.target_path = _Buff;
+    _Buff.resize(_MAX_PATH); // restore buffer size
+    _FILESYSTEM_VERIFY(_Link->GetShowCmd(&_Result.show_cmd) == S_OK, "failed to get cmd show code", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->GetWorkingDirectory(_Buff.data(), _MAX_PATH) == S_OK,
+        "failed to get working directory", error_type::runtime_error);
+    _Result.directory = _Buff;
+    _File->Release();
+    _Link->Release();
+    return _Result;
+}
+
+_NODISCARD bool shortcut_parameters(const path& _Target, shortcut_data* const _Params) {
+    if (!exists(_Target)) {
+        _Throw_fs_error("shortcut not found", error_type::runtime_error, "shortcut_parameters");
+    }
+
+    if (_Target.extension() != "lnk") { // shortcut_parameters() is reserved for files with LNK extension (link) only
+        _Throw_fs_error("expected link", error_type::runtime_error, "shortcut_parameters");
+    }
+
+    IShellLinkW* _Link;
+    _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
+        reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
+    IPersistFile* _File;
+    _FILESYSTEM_VERIFY(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)) == S_OK,
+        "failed to query interface", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_File->Load(_Target.generic_wstring().c_str(), STGM_READ) == S_OK,
+        "failed to load the shortcut", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->Resolve(nullptr, 0) == S_OK, "failed to find shortcut target", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->SetArguments(_Params->arguments.c_str()) == S_OK,
+        "failed to change shortcut parameters", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->SetDescription(_Params->description.c_str()) == S_OK,
+        "failed to change shortcut description", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->SetHotkey(_Params->hotkey) == S_OK, "failed to change shortcut key", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->SetIconLocation(_Params->icon_path.generic_wstring().c_str(), _Params->icon) == S_OK,
+        "failed to change shortcut icon path and index", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->SetIDList(_Params->id_list) == S_OK, "failed to change shortcut ID list", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->SetPath(_Params->target_path.generic_wstring().c_str()) == S_OK,
+        "failed to change shortcut target path", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->SetShowCmd(_Params->show_cmd) == S_OK, "failed to change shortcut CMD call", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->SetWorkingDirectory(_Params->directory.generic_wstring().c_str()) == S_OK,
+        "failed to change shortcut working directory", error_type::runtime_error);
+    _File->Release();
+    _Link->Release();
+    return true;
 }
 
 // FUNCTION space

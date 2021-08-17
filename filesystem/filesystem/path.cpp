@@ -303,7 +303,6 @@ template <class _CharTy>
 bool path::operator==(const _CharTy* const _Compare) const {
     // _CharTy must be an chararcter (char/char8_t/char16_t/char32_t/wchar_t) type
     static_assert(_Is_char_t<_CharTy>, "invalid character type");
-    
     return _Mytext == _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Compare);
 }
 
@@ -317,7 +316,6 @@ template <class _Src>
 bool path::operator==(const _Src& _Compare) const {
     // _Src must be an string (basic_string/basic_string_view) type
     static_assert(_Is_src_t<_Src>, "invalid string type");
-    
     return _Mytext == _Convert_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Compare.data());
 }
 
@@ -343,7 +341,6 @@ template <class _CharTy>
 bool path::operator!=(const _CharTy* const _Compare) const {
     // _CharTy must be an chararcter (char/char8_t/char16_t/char32_t/wchar_t) type
     static_assert(_Is_char_t<_CharTy>, "invalid character type");
-    
     return _Mytext != _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Compare);
 }
 
@@ -357,7 +354,6 @@ template <class _Src>
 bool path::operator!=(const _Src& _Compare) const {
     // _Src must be an string (basic_string/basic_string_view) type
     static_assert(_Is_src_t<_Src>, "invalid string type");
-    
     return _Mytext != _Convert_to_narrow<typename _Src::value_type, typename _Src::traits_type>(_Compare.data());
 }
 
@@ -767,6 +763,13 @@ _NODISCARD bool current_path(const path& _Path) { // sets new current path
     }
 
     return true;
+}
+
+// FUNCTION make_path
+_NODISCARD path make_path(const path& _Path) {
+    // build new path using current directory
+    return path(current_path() + (_Path.generic_string()[0] == '\\' ?
+        _Path : R"(\)" + _Path));
 }
 
 // FUNCTION temp_directory_path

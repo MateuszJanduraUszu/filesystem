@@ -127,7 +127,6 @@ _NODISCARD string read_front(const path& _Target) { // reads first line in _Targ
         return _First;
     }
 
-
     return string();
 }
 
@@ -182,6 +181,35 @@ _NODISCARD path read_junction(const path& _Target) {
     }
 
     return path(_Reparse);
+}
+
+// FUNCTION read_shortcut
+_NODISCARD path read_shortcut(const path& _Target) {
+    if (!exists(_Target)) {
+        _Throw_fs_error("shortcut not found", error_type::runtime_error, "read_shortcut");
+    }
+
+    if (_Target.extension() != "lnk") { // read_shortcut() is reserved for files with LNK extension (link) only
+        _Throw_fs_error("expected link", error_type::runtime_error, "read_shortcut");
+    }
+
+    IShellLinkW* _Link     = {};
+    WIN32_FIND_DATAW _Data = {}; // warning C6001 if not defined
+    _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
+        reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
+    IPersistFile* _File;
+    wchar_t _Buff[_MAX_PATH]; // buffer for shortcut target path
+    _FILESYSTEM_VERIFY(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)) == S_OK,
+        "failed to query interface", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_File->Load(_Target.generic_wstring().c_str(), STGM_READ) == S_OK, 
+        "failed to load the shortcut", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->Resolve(nullptr, 0) == S_OK, "failed to find shortcut target", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Link->GetPath(_Buff, _MAX_PATH, &_Data, SLGP_SHORTPATH) == S_OK,
+        "failed to get shortcut target path", error_type::runtime_error);
+    _File->Release();
+    _Link->Release();
+    return path(static_cast<const wchar_t*>(_Buff));
 }
 
 // FUNCTION read_symlink
@@ -257,7 +285,6 @@ _NODISCARD bool resize_file(const path& _Target, const size_t _Newsize) {
     }
 
     CloseHandle(_Handle);
-
     return true;
 }
 

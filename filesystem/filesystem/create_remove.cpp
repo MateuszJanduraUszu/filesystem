@@ -376,6 +376,41 @@ _NODISCARD bool create_junction(const path& _To, const path& _Junction) {
 }
 #pragma warning(pop)
 
+// FUNCTION TEMPLATE create_shortcut
+template <class _CharTy>
+_NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut, const _CharTy* const _Description) {
+    if (!exists(_To)) {
+        _Throw_fs_error("file not found", error_type::runtime_error, "create_shortcut");
+    }
+
+    if (_Is_directory(_To)) { // create_shortcut() is reserved for files only
+        _Throw_fs_error("expected file", error_type::runtime_error, "create_shortcut");
+    }
+
+    IShellLinkW* _Link;
+    _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
+        reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
+    // Current version don't offerts conversion between char[16/32]_t and wchar_t.
+    // First convert to narrow, and then from narrow to wide.
+    const auto& _Narrow = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Description);
+    const auto& _Wide   = _Convert_narrow_to_wide(code_page::utf8, _Narrow.c_str());
+    IPersistFile* _File = {};
+    _Link->SetPath(_To.generic_wstring().c_str());
+    _Link->SetDescription(_Wide.c_str());
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
+    _File->Save(_Shortcut.generic_wstring().c_str(), true);
+    _File->Release();
+    _Link->Release();
+    return true;
+}
+
+template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char* const);
+template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char8_t* const);
+template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char16_t* const);
+template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char32_t* const);
+template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const wchar_t* const);
+
 // FUNCTION create_symlink
 _NODISCARD bool create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags) {
     if (!CreateSymbolicLinkW(_Symlink.generic_wstring().c_str(),

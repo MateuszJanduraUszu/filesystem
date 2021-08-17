@@ -17,7 +17,7 @@
 #define _HAS_WINDOWS 0
 #endif // _WIN32
 
-// filesystem api
+// Filesystem Api
 #ifndef _FILESYSTEM_API
 #ifdef FILESYSTEM_EXPORTS
 #define _FILESYSTEM_API __declspec(dllexport)
@@ -26,12 +26,12 @@
 #endif // FILESYSTEM_EXPORTS
 #endif // _FILESYSTEM_API
 
-// attributes
+// Attributes
 #ifndef _NODISCARD
 #define _NODISCARD [[nodiscard]]
 #endif // _NODISCARD
 
-// exceptions
+// Exceptions
 #ifndef _THROW
 #define _THROW(_Errm) throw _Errm
 #endif // _THROW
@@ -52,7 +52,7 @@
 #define _CATCH_END }
 #endif // _CATCH_END
 
-// namespace
+// Namespace
 #ifndef _FILESYSTEM_BEGIN
 #define _FILESYSTEM_BEGIN namespace filesystem {
 #endif // _FILESYSTEM_BEGIN
@@ -77,27 +77,34 @@
 #define _FILESYSTEM_EXPERIMENTAL ::filesystem::experimental::
 #endif // _FILESYSTEM_EXPERIMENTAL
 
-// operators
+// Deprecated Messages
+#ifndef _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
+#define _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS                           \
+    __declspec(deprecated("The filesystem::shortcut_parameters() is unsafe " \
+        "and will be removed or redefined in future version."))
+#endif // _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
+
+// Operators
 #ifndef _BITOPS
-#define _BITOPS(_Bitsrc)                                                                     \
-_NODISCARD constexpr _Bitsrc operator&(const _Bitsrc _Left, const _Bitsrc _Right) noexcept { \
-    using _IntT = _STD underlying_type_t<_Bitsrc>;                                           \
-    return static_cast<_Bitsrc>(static_cast<_IntT>(_Left) & static_cast<_IntT>(_Right));     \
-}                                                                                            \
-                                                                                             \
-_NODISCARD constexpr _Bitsrc operator|(const _Bitsrc _Left, const _Bitsrc _Right) noexcept { \
-    using _IntT = _STD underlying_type_t<_Bitsrc>;                                           \
-    return static_cast<_Bitsrc>(static_cast<_IntT>(_Left) | static_cast<_IntT>(_Right));     \
-}                                                                                            \
-                                                                                             \
-_NODISCARD constexpr _Bitsrc operator^(const _Bitsrc _Left, const _Bitsrc _Right) noexcept { \
-    using _IntT = _STD underlying_type_t<_Bitsrc>;                                           \
-    return static_cast<_Bitsrc>(static_cast<_IntT>(_Left) ^ static_cast<_IntT>(_Right));     \
-}                                                                                            \
-                                                                                             \
-constexpr _Bitsrc& operator^=(_Bitsrc& _Left, const _Bitsrc _Right) noexcept {               \
-    _Left = _Left ^ _Right;                                                                  \
-    return _Left;                                                                            \
+#define _BITOPS(_Bitmask)                                                                       \
+_NODISCARD constexpr _Bitmask operator&(const _Bitmask _Left, const _Bitmask _Right) noexcept { \
+    using _IntTy = _STD underlying_type_t<_Bitmask>;                                            \
+    return static_cast<_Bitmask>(static_cast<_IntTy>(_Left) & static_cast<_IntTy>(_Right));     \
+}                                                                                               \
+                                                                                                \
+_NODISCARD constexpr _Bitmask operator|(const _Bitmask _Left, const _Bitmask _Right) noexcept { \
+    using _IntTy = _STD underlying_type_t<_Bitmask>;                                            \
+    return static_cast<_Bitmask>(static_cast<_IntTy>(_Left) | static_cast<_IntTy>(_Right));     \
+}                                                                                               \
+                                                                                                \
+_NODISCARD constexpr _Bitmask operator^(const _Bitmask _Left, const _Bitmask _Right) noexcept { \
+    using _IntTy = _STD underlying_type_t<_Bitmask>;                                            \
+    return static_cast<_Bitmask>(static_cast<_IntTy>(_Left) ^ static_cast<_IntTy>(_Right));     \
+}                                                                                               \
+                                                                                                \
+constexpr _Bitmask& operator^=(_Bitmask& _Left, const _Bitmask _Right) noexcept {               \
+    _Left = _Left ^ _Right;                                                                     \
+    return _Left;                                                                               \
 }
 #endif // _BITOPS
 
@@ -108,18 +115,51 @@ constexpr _Bitsrc& operator^=(_Bitsrc& _Left, const _Bitsrc _Right) noexcept {  
 #pragma warning(disable : 4996) // C4996: using deprecated content
 #pragma warning(disable : 4251) // C4251: some STL classes requires dll library
 
+// These libraries contains each function/macro/type that filesystem.dll uses.
+// <Windows.h> must be included before C-libraries.
+#include <Windows.h>
 #include <array>
 #include <codecvt>
+#include <combaseapi.h>
+#include <coml2api.h>
+#include <CommCtrl.h>
+#include <corecrt_wstring.h>
+#include <errhandlingapi.h>
+#include <fileapi.h>
 #include <fstream>
+#include <handleapi.h>
+#include <ioapiset.h>
+#include <iosfwd>
 #include <iostream>
+#include <istream>
+#include <libloaderapi.h>
+#include <limits.h>
 #include <locale>
+#include <minwinbase.h>
+#include <objbase.h>
+#include <objidl.h>
+#include <ostream>
+#include <processenv.h>
+#include <ShlGuid.h>
 #include <shellapi.h>
-#pragma comment(lib, "Shell32.lib")
+#include <ShObjIdl.h>
+#include <ShObjIdl_core.h>
 #include <stdexcept>
 #include <string>
+#include <stringapiset.h>
+#include <timezoneapi.h>
+#include <vcruntime.h>
+#include <vcruntime_string.h>
 #include <vector>
-#include <Windows.h>
+#include <WinBase.h>
+#include <winerror.h>
 #include <winioctl.h>
+#include <WinNls.h>
+#include <winnt.h>
+#include <xiosbase>
+#include <xlocbuf>
+#include <xutility>
+#include <xtr1common>
 
 // STD allocators
 using _STD allocator;
@@ -492,6 +532,18 @@ _FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Err
     } while (false);
 #endif // _FILESYSTEM_VERIFY
 
+#ifndef _FILESYSTEM_VERIFY_COM_RESULT
+#define _FILESYSTEM_VERIFY_COM_RESULT(_Result, _Obj)                                                          \
+    do {                                                                                                      \
+        if (_Result == S_OK) {                                                                                \
+            /* nothing to do */                                                                               \
+        } else {                                                                                              \
+            _Obj->Release();                                                                                  \
+            _Throw_fs_error("bad COM result", error_type::runtime_error, static_cast<const char*>(__func__)); \
+        }                                                                                                     \
+    } while (false);
+#endif // _FILESYSTEM_VERIFY_COM_RESULT
+
 #ifndef _FILESYSTEM_VERIFY_FILE_STREAM
 #define _FILESYSTEM_VERIFY_FILE_STREAM(_Stream)                                                         \
     do {                                                                                                \
@@ -515,6 +567,9 @@ _FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Err
 // FUNCTION current_path
 _FILESYSTEM_API _NODISCARD path current_path() noexcept;
 _FILESYSTEM_API _NODISCARD bool current_path(const path& _Path);
+
+// FUNCTION make_path
+_FILESYSTEM_API _NODISCARD path make_path(const path& _Path);
 
 // ENUM CLASS file_access
 enum class _FILESYSTEM_API file_access : unsigned long {
@@ -839,6 +894,10 @@ _FILESYSTEM_API _NODISCARD bool create_hard_link(const path& _To, const path& _H
 // FUNCTION create_junction
 _FILESYSTEM_API _NODISCARD bool create_junction(const path& _To, const path& _Junction);
 
+// FUNCTION TEMPLATE create_shortcut
+template <class _CharTy>
+_FILESYSTEM_API _NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut, const _CharTy* const _Description = nullptr);
+
 // FUNCTION create_symlink
 _FILESYSTEM_API _NODISCARD bool create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags);
 _FILESYSTEM_API _NODISCARD bool create_symlink(const path& _To, const path& _Symlink);
@@ -922,6 +981,9 @@ _FILESYSTEM_API _NODISCARD string read_inside(const path& _Target, const uintmax
 // FUNCTION read_junction
 _FILESYSTEM_API _NODISCARD path read_junction(const path& _Target);
 
+// FUNCTION read_shortcut
+_FILESYSTEM_API _NODISCARD path read_shortcut(const path& _Target);
+
 // FUNCTION read_symlink
 _FILESYSTEM_API _NODISCARD path read_symlink(const path& _Target);
 
@@ -943,6 +1005,24 @@ _FILESYSTEM_API _NODISCARD bool rename(const path& _Old, const path& _New);
 
 // FUNCTION resize_file
 _FILESYSTEM_API _NODISCARD bool resize_file(const path& _Target, const size_t _Newsize);
+
+// STRUCT shortcut_data
+struct _FILESYSTEM_API shortcut_data final { // warinig C6001 if not defined
+    wstring arguments{};
+    wstring description{};
+    uint16_t hotkey{};
+    path icon_path{};
+    int icon{};
+    ITEMIDLIST* id_list{};
+    path target_path{};
+    int show_cmd{};
+    path directory{};
+};
+
+// FUNCTION shortcut_parameters
+_FILESYSTEM_API _NODISCARD shortcut_data shortcut_parameters(const path& _Target);
+_FILESYSTEM_API _NODISCARD bool _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS shortcut_parameters(
+    const path& _Target, shortcut_data* const _Params);
 
 // STRUCT disk_space
 struct _FILESYSTEM_API disk_space final {
