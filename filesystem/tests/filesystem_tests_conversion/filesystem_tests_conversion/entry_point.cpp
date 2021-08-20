@@ -3,9 +3,24 @@
 // Copyright (c) Mateusz Jandura. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cstdlib>
 #include <filesystem.hpp>
 #include <iostream>
-#include <string>
+#include <xstring>
+#include <xtr1common>
+#ifdef _M_X64
+#ifdef _DEBUG
+#pragma comment(lib, R"(x64\Debug\filesystem.lib)")
+#else // ^^^ _DEBUG ^^^ / vvv NDEBUG vvv
+#pragma comment(lib, R"(x64\Release\filesystem.lib)")
+#endif // _DEBUG
+#else // ^^^ _M_X64 ^^^ / vvv _M_IX86 vvv
+#ifdef _DEBUG
+#pragma comment(lib, R"(Debug\filesystem.lib)")
+#else // ^^^ _DEBUG ^^^ / vvv NDEBUG vvv
+#pragma comment(lib, R"(Release\filesystem.lib)")
+#endif // _DEBUG
+#endif // _M_X64
 
 // TYPES AND CONSTANTS USED IN TESTS
 using _FILESYSTEM code_page;
@@ -167,7 +182,7 @@ int _CDECL_OR_STDCALL main(int _Count, char** _Params) {
     _STD cin >> _Input;
 
     if (_Out == "char") { // unsupported operation
-        system("cls");
+        _CSTD system("cls");
         _STD cout << "Cannot do conversion between the same types.";
         _STD cin.get();
         return EXIT_FAILURE;
@@ -188,7 +203,7 @@ int _CDECL_OR_STDCALL main(int _Count, char** _Params) {
         _STD cin.get();
         return EXIT_SUCCESS;
     } else { // invalid character type
-        system("cls");
+        _CSTD system("cls");
         _STD cout << "Invalid character type.\n";
         _STD cin.get();
         return EXIT_FAILURE;
