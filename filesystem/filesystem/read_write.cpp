@@ -138,7 +138,11 @@ _NODISCARD string read_inside(const path& _Target, const uintmax_t _Line) { // r
     
     const auto& _All{read_all(_Target)};
     _FILESYSTEM_VERIFY(_Line <= _All.size() && _Line > 0, "invalid line", error_type::runtime_error);  
+#ifdef _M_X64
     return _All[_Line - 1];
+#else // ^^^ _M_X64 ^^^ / vvv _M_IX86 vvv
+    return _All[static_cast<uint32_t>(_Line) - 1];
+#endif // _M_X64
 }
 
 // FUNCTION read_junction
@@ -405,7 +409,11 @@ _NODISCARD bool write_inside(const path& _Target, const _CharTy* const _Writable
     }
 
     auto _Write{_All};
+#ifdef _M_X64
     _Write.insert(_Write.begin() + (_Line - 1), _Narrow_writable);
+#else // ^^^ _M_X64 ^^^ / vvv _M_IX86 vvv
+    _Write.insert(_Write.begin() + (static_cast<uint32_t>(_Line) - 1), _Narrow_writable);
+#endif // _M_X64
 
     // clear file and write the newest content,
     // use resize_file() instead of clear(), because we knows that _Target is file
@@ -441,7 +449,11 @@ _NODISCARD bool write_instead(const path& _Target, const _CharTy* const _Writabl
     const size_t _Count            = _All.size();
 
     _FILESYSTEM_VERIFY(_Line > 0 && _Line <= _Count, "invalid line", error_type::runtime_error);
+#ifdef _M_X64
     _All[_Line - 1] = _Narrow_writable; // swap content
+#else // ^^^ _M_X64 ^^^ / vvv _M_IX86 vvv
+    _All[static_cast<uint32_t>(_Line) - 1] = _Narrow_writable; // swap content
+#endif // _M_X64
 
     // clear _Target and write to him the newest content,
     // use resize_file() instead of clear(), because we knows that _Target is file
