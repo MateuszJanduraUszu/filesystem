@@ -13,11 +13,11 @@
 _FILESYSTEM_BEGIN
 // FUNCTION TEMPLATE operator>>
 template <class _Elem, class _Traits>
-_NODISCARD basic_istream<_Elem, _Traits>& operator>>(basic_istream<_Elem, _Traits>& _Stream, path& _Path) {
+_NODISCARD basic_istream<_Elem, _Traits>& operator>>(basic_istream<_Elem, _Traits>& _Istr, path& _Path) {
     basic_string<_Elem, _Traits, allocator<_Elem>> _Input;
-    _Stream >> _Input;
+    _Istr >> _Input;
     _Path = _STD move(_Input);
-    return _Stream;
+    return _Istr;
 }
 
 template _FILESYSTEM_API _NODISCARD istream& operator>>(istream&, path&);
@@ -25,15 +25,15 @@ template _FILESYSTEM_API _NODISCARD wistream& operator>>(wistream&, path&);
 
 // FUNCTION TEMPLATE operator<<
 template <class _Elem, class _Traits>
-_NODISCARD basic_ostream<_Elem, _Traits>& operator<<(basic_ostream<_Elem, _Traits>& _Stream, const path& _Path) {
+_NODISCARD basic_ostream<_Elem, _Traits>& operator<<(basic_ostream<_Elem, _Traits>& _Ostr, const path& _Path) {
     // current C++ standard supports only char and wchar_t streams
     if constexpr (_STD is_same_v<_Elem, char>) {
-        _Stream << _Path.generic_string();
+        _Ostr << _Path.generic_string();
     } else if constexpr (_STD is_same_v<_Elem, wchar_t>) {
-        _Stream << _Path.generic_wstring();
+        _Ostr << _Path.generic_wstring();
     }
 
-    return _Stream;
+    return _Ostr;
 }
 
 template _FILESYSTEM_API _NODISCARD ostream& operator<<(ostream&, const path&);
@@ -126,7 +126,7 @@ template _FILESYSTEM_API path::path(const wstring_view&);
 // FUNCTION path::_Check_size
 constexpr void path::_Check_size() const {
     // path cannot be longer than 260 characters
-    if (_Mytext.size() > static_cast<size_t>(_MAX_PATH)) {
+    if (_Mytext.size() > _Max_path) {
         _Throw_system_error("_Check_size", "invalid length", error_type::length_error);
     }
 }
@@ -369,21 +369,43 @@ template _FILESYSTEM_API bool path::operator!=(const u16string_view&) const;
 template _FILESYSTEM_API bool path::operator!=(const u32string_view&) const;
 template _FILESYSTEM_API bool path::operator!=(const wstring_view&) const;
 
+// FUNCTION path::operator[]
+_NODISCARD constexpr path::reference path::operator[](const size_type _Pos) {
+    return _Mytext[_Pos];
+}
+
+_NODISCARD constexpr path::const_reference path::operator[](const size_type _Pos) const {
+    return _Mytext[_Pos];
+}
+
+// FUNCTION path::at
+_NODISCARD constexpr path::reference path::at(const size_type _Pos) {
+    return _Mytext.at(_Pos);
+}
+
+_NODISCARD constexpr path::const_reference path::at(const size_type _Pos) const {
+    return _Mytext.at(_Pos);
+}
+
+// FUNCTION path::begin
+_NODISCARD constexpr path::iterator path::begin() noexcept {
+    return _Mytext.begin();
+}
+
+_NODISCARD constexpr path::const_iterator path::begin() const noexcept {
+    return _Mytext.begin();
+}
+
 // FUNCTION path::clear
 constexpr void path::clear() noexcept {
     _Mytext.clear();
 }
 
-// same as string[_view]::npos
-#ifndef _NPOS
-#define _NPOS static_cast<size_t>(-1)
-#endif // _NPOS
-
 // FUNCTION path::directory
 _NODISCARD path path::directory() const noexcept {
     if (has_directory()) {
-        const size_t _Pos{_Mytext.find_last_of(_Expected_slash)};
-        if (_Pos == _NPOS) { // the path contain only one directory
+        const size_type _Pos{_Mytext.find_last_of(_Expected_slash)};
+        if (_Pos == npos) { // the path contain only one directory
             return _Mytext;
         }
 
@@ -408,6 +430,15 @@ _NODISCARD constexpr bool path::empty() const noexcept {
     return _Mytext.empty();
 }
 
+// FUNCTION path::end
+_NODISCARD constexpr path::iterator path::end() noexcept {
+    return _Mytext.end();
+}
+
+_NODISCARD constexpr path::const_iterator path::end() const noexcept {
+    return _Mytext.end();
+}
+
 // FUNCTION path::extension
 _NODISCARD path path::extension() const noexcept {
     // if has extension, then everything after last dot is extension
@@ -417,7 +448,7 @@ _NODISCARD path path::extension() const noexcept {
 // FUNCTION path::file
 _NODISCARD path path::file() const noexcept {
     if (has_file()) { // if has file, then everything after last slash is filename
-        return _Mytext.find(_Expected_slash) != _NPOS ?
+        return _Mytext.find(_Expected_slash) != npos ?
             string_type(_Mytext, _Mytext.find_last_of(_Expected_slash) + 1, _Mytext.size()) : string_type(_Mytext);
     }
 
@@ -427,8 +458,7 @@ _NODISCARD path path::file() const noexcept {
 // FUNCTION path::fix
 _NODISCARD path& path::fix() noexcept {
     string_type _Fixed;
-
-    for (size_t _Idx = 0; _Idx < _Mytext.size(); ++_Idx) { // leave only single slashs
+    for (size_type _Idx = 0; _Idx < _Mytext.size(); ++_Idx) { // leave only single slashs
         if (_Fixed.size() > 0) {
             if ((_Mytext[_Idx] == _Expected_slash || _Mytext[_Idx] == _Unexpected_slash)
                 && (_Fixed.back() == _Expected_slash || _Fixed.back() == _Unexpected_slash)) {
@@ -506,13 +536,13 @@ _NODISCARD bool path::has_drive() const noexcept {
 
 // FUNCTION path::has_extension
 _NODISCARD bool path::has_extension() const noexcept {
-    if (_Mytext.find(".") != _NPOS) {
-        const size_t _Dot_pos{_Mytext.find_last_of(".")};
+    if (_Mytext.find(".") != npos) {
+        const size_type _Dot_pos{_Mytext.find_last_of(".")};
 
         // example of this case:
         // "Disk:\Directory\Subdirectory."
         if (_Dot_pos < _Mytext.size()) {
-            if (const size_t _Last = _Mytext.find_last_of(_Expected_slash);
+            if (const size_type _Last = _Mytext.find_last_of(_Expected_slash);
                 _Last < _Mytext.size() && _Last > _Dot_pos) { // for example: "Disk:\File.Extension\"
                 return false;
             }
@@ -562,8 +592,8 @@ _NODISCARD bool path::has_stem() const noexcept {
 
 // FUNCTION path::is_absolute
 _NODISCARD bool path::is_absolute() const noexcept {
-    if (_Mytext.find(_Expected_slash) == _NPOS
-        && _Mytext.find(_Unexpected_slash) == _NPOS) { // path without any slash
+    if (_Mytext.find(_Expected_slash) == npos
+        && _Mytext.find(_Unexpected_slash) == npos) { // path without any slash
         return false;
     }
 
@@ -600,6 +630,15 @@ _NODISCARD path path::parent_directory() const noexcept {
         parent_path()._Mytext.find_first_of(_Expected_slash)) : string_type();
 }
 
+// FUNCTION path::rend
+_NODISCARD constexpr path::reverse_iterator path::rend() noexcept {
+    return _Mytext.rend();
+}
+
+_NODISCARD constexpr path::const_reverse_iterator path::rend() const noexcept {
+    return _Mytext.rend();
+}
+
 // FUNCTION path::parent_path
 _NODISCARD path path::parent_path() const noexcept {
     if (has_parent_directory()) { // parent path is everything after root directory
@@ -619,7 +658,7 @@ _NODISCARD path path::parent_path() const noexcept {
 // FUNCTION path::remove_directory
 _NODISCARD path& path::remove_directory(const bool _With_slash) noexcept {
     if (has_directory()) {
-        if (_Mytext.find(_Expected_slash) == _NPOS) {
+        if (_Mytext.find(_Expected_slash) == npos) {
             _Mytext.clear();
         } else {
             _Mytext.resize(_Mytext.find_last_of(_Expected_slash) + (_With_slash ? 0 : 1));
@@ -642,7 +681,7 @@ _NODISCARD path& path::remove_extension() noexcept {
 _NODISCARD path& path::remove_file(const bool _With_slash) noexcept {
     if (has_file()) {
         // if path contains only filename, then clear it
-        _Mytext.find(_Expected_slash) != _NPOS ?
+        _Mytext.find(_Expected_slash) != npos?
             _Mytext.resize(_With_slash ? _Mytext.find_last_of(_Expected_slash)
                 : _Mytext.find_last_of(_Expected_slash) + 1) : clear();
     }
@@ -699,7 +738,7 @@ _NODISCARD path& path::replace_stem(const path& _Replacement) {
 }
 
 // FUNCTION path::resize
-constexpr void path::resize(const size_t _Newsize, const value_type _Ch) {
+constexpr void path::resize(const size_type _Newsize, const value_type _Ch) {
     _Mytext.resize(_Newsize, _Ch);
     _Check_size();
 }
@@ -726,7 +765,7 @@ _NODISCARD constexpr size_t path::size() const noexcept {
 _NODISCARD path path::stem() const noexcept {
     if (has_stem()) {
         auto _Stem{_Mytext}; // don't change original text
-        if (_Stem.find_last_of(_Expected_slash) != _NPOS) {
+        if (_Stem.find_last_of(_Expected_slash) != npos) {
             _Stem.replace(0, _Stem.find_last_of(_Expected_slash) + 1, string_type()); // leave only filename with extension
             _Stem.resize(_Stem.find_last_of(".")); // remove extension
             return _Stem; // break here
@@ -742,26 +781,17 @@ _NODISCARD path path::stem() const noexcept {
 
 // FUNCTION current_path
 _NODISCARD path current_path() noexcept {
-    wchar_t _Buff[_MAX_PATH];
-    if (!GetModuleFileNameW(nullptr, _Buff, _MAX_PATH)) { // failed to get current path
-        _Throw_fs_error("failed to get current path", error_type::runtime_error, "current_path");
-    }
-    
+    wchar_t _Buff[_Max_path];
+    _FILESYSTEM_VERIFY(GetModuleFileNameW(nullptr, _Buff, _Max_path),
+        "failed to get current path", error_type::runtime_error);
     path _Path{static_cast<const wchar_t*>(_Buff)};
     (void) _Path.remove_file(true);
     return _Path;
 }
 
 _NODISCARD bool current_path(const path& _Path) { // sets new current path
-    // path cannot be longer than 260 characters
-    if (_Path.generic_string().size() > static_cast<size_t>(_MAX_PATH)) {
-        _Throw_system_error("set_path", "invalid length", error_type::length_error);
-    }
-
-    if (!SetCurrentDirectoryW(_Path.generic_wstring().c_str())) { // failed to set new path
-        _Throw_fs_error("failed to set new path", error_type::runtime_error, "set_path");
-    }
-
+    _FILESYSTEM_VERIFY(SetCurrentDirectoryW(_Path.generic_wstring().c_str()),
+        "failed to set new path", error_type::runtime_error);
     return true;
 }
 
@@ -774,20 +804,15 @@ _NODISCARD path make_path(const path& _Path) {
 
 // FUNCTION temp_directory_path
 _NODISCARD path temp_directory_path() {
-    wchar_t _Buff[_MAX_PATH];
-    const unsigned long _Size{GetTempPathW(_MAX_PATH, _Buff)};
-
+    wchar_t _Buff[_Max_path];
+    const unsigned long _Size{GetTempPathW(_Max_path, _Buff)};
     _FILESYSTEM_VERIFY(_Size > 0, "failed to get temporary path", error_type::runtime_error);
     path _Tmp{static_cast<const wchar_t*>(_Buff)};
     if (_Tmp.generic_string().back() == _Expected_slash) { // unnecessary slash on last position
         _Tmp.resize(_Tmp.size() - 1);
-    
         if (!exists(_Tmp)) { // sometimes slash on last position can be important, we should check it
             _Tmp += R"(\)";
-
-            if (!exists(_Tmp)) { // not found temp directory
-                _Throw_fs_error("temporary directory path not found", error_type::runtime_error, "temp_directory_path");
-            }
+            _FILESYSTEM_VERIFY(exists(_Tmp), "temporary directory path not found", error_type::runtime_error);
 
             // if won't throw an exception, return will contain slash on last position
         }

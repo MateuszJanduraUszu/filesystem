@@ -26,6 +26,10 @@
 #endif // FILESYSTEM_EXPORTS
 #endif // _FILESYSTEM_API
 
+// Some macros may be defined in <yvals_core.h> and <yvals.h>.
+#include <yvals_core.h>
+#include <yvals.h>
+
 // Attributes
 #ifndef _NODISCARD
 #define _NODISCARD [[nodiscard]]
@@ -84,7 +88,7 @@
         "and will be removed or redefined in future version."))
 #endif // _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
 
-// Operators
+// Operators (No Unnecessary)
 #ifndef _BITOPS
 #define _BITOPS(_Bitmask)                                                                       \
 _NODISCARD constexpr _Bitmask operator&(const _Bitmask _Left, const _Bitmask _Right) noexcept { \
@@ -236,9 +240,8 @@ inline constexpr bool _Is_src_t = _STD _Is_any_of_v<_Ty, string, u8string, u16st
 template <class _Ty>
 inline constexpr bool _Is_narrow_src_t = _STD _Is_any_of_v<_Ty, string, string_view>;
 
-#ifndef _MAX_PATH
-#define _MAX_PATH 260
-#endif // _MAX_PATH
+// CONSTANT _Max_path
+inline constexpr size_t _Max_path = 260;
 
 // ENUM CLASS error_type
 enum class error_type : unsigned int { // error type for _Throw_system_error
@@ -254,13 +257,13 @@ enum class code_page {
 };
 
 // FUNCTION _Throw_system_error
-_FILESYSTEM_API __declspec(noreturn) void _Throw_system_error(const char* const _Errpos, const char* const _Errm, const error_type _Errc);
+_FILESYSTEM_API __declspec(noreturn) void _Throw_system_error(const char* const _Src, const char* const _Msg, const error_type _Code);
 
 // FUNCTION _Convert_narrow_to_wide
-_FILESYSTEM_API _NODISCARD wstring _Convert_narrow_to_wide(const code_page _Code_page, const string_view _Input);
+_FILESYSTEM_API _NODISCARD wstring _Convert_narrow_to_wide(const code_page _Cp, const string_view _Input);
 
 // FUNCTION _Convert_wide_to_narrow
-_FILESYSTEM_API _NODISCARD string _Convert_wide_to_narrow(const code_page _Code_page, const wstring_view _Input);
+_FILESYSTEM_API _NODISCARD string _Convert_wide_to_narrow(const code_page _Cp, const wstring_view _Input);
 
 // FUNCTION TEMPLATE _Convert_utf_to_wide
 template <class _Elem, class _Traits = char_traits<_Elem>>
@@ -279,33 +282,46 @@ class path;
 
 // FUNCTION TEMPLATE operator>>
 template <class _Elem, class _Traits = char_traits<_Elem>>
-_FILESYSTEM_API _NODISCARD basic_istream<_Elem, _Traits>& operator>>(basic_istream<_Elem, _Traits>&, path&);
+_FILESYSTEM_API _NODISCARD basic_istream<_Elem, _Traits>& operator>>(basic_istream<_Elem, _Traits>& _Istr, path& _Path);
 
 // FUNCTION TEMPLATE operator<<
 template <class _Elem, class _Traits = char_traits<_Elem>>
-_FILESYSTEM_API _NODISCARD basic_ostream<_Elem, _Traits>& operator<<(basic_ostream<_Elem, _Traits>&, const path&);
+_FILESYSTEM_API _NODISCARD basic_ostream<_Elem, _Traits>& operator<<(basic_ostream<_Elem, _Traits>& _Ostr, const path& _Path);
 
 // FUNCTION TEMPLATE operator+
-_FILESYSTEM_API _NODISCARD path operator+(const path&, const path&);
+_FILESYSTEM_API _NODISCARD path operator+(const path& _Left, const path& _Right);
 template <class _CharTy>
-_FILESYSTEM_API _NODISCARD path operator+(const path&, const _CharTy* const);
+_FILESYSTEM_API _NODISCARD path operator+(const path& _Left, const _CharTy* const _Right);
 template <class _CharTy>
-_FILESYSTEM_API _NODISCARD path operator+(const _CharTy* const, const path&);
+_FILESYSTEM_API _NODISCARD path operator+(const _CharTy* const _Left, const path& _Right);
 template <class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
-_FILESYSTEM_API _NODISCARD path operator+(const path&, const basic_string<_Elem, _Traits, _Alloc>&);
+_FILESYSTEM_API _NODISCARD path operator+(const path& _Left, const basic_string<_Elem, _Traits, _Alloc>& _Right);
 template <class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
-_FILESYSTEM_API _NODISCARD path operator+(const basic_string<_Elem, _Traits, _Alloc>&, const path&);
+_FILESYSTEM_API _NODISCARD path operator+(const basic_string<_Elem, _Traits, _Alloc>& _Left, const path& _Right);
 
 // CLASS path
 class _FILESYSTEM_API path { // takes any string of characters
 public:
-    using value_type  = char;
-    using string_type = string;
+    using value_type      = char;
+    using string_type     = string;
+    using size_type       = typename string_type::size_type;
+    using pointer         = typename string_type::pointer;
+    using const_pointer   = typename string_type::const_pointer;
+    using reference       = typename string_type::reference;
+    using const_reference = typename string_type::const_reference;
+
+    using iterator       = typename string_type::iterator;
+    using const_iterator = typename string_type::const_iterator;
+
+    using reverse_iterator       = typename string_type::reverse_iterator;
+    using const_reverse_iterator = typename string_type::const_reverse_iterator;
+
+    static constexpr auto npos{static_cast<size_type>(-1)};
 
     path()            = default;
     path(const path&) = default;
     path(path&&)      = default;
-    virtual ~path()   = default;
+    ~path()           = default;
 
     template <class _CharTy>
     path(const _CharTy* const _Source); // all character types
@@ -313,10 +329,6 @@ public:
     template <class _Src>
     path(const _Src& _Source); // all string types
 
-private:
-    constexpr void _Check_size() const; // verifies path size
-
-public:
     path& operator=(const path& _Source);
     path& assign(const path& _Source);
 
@@ -363,6 +375,17 @@ public:
     template <class _Src>
     bool operator!=(const _Src& _Compare) const;
 
+    _NODISCARD constexpr reference operator[](const size_type _Pos);
+    _NODISCARD constexpr const_reference operator[](const size_type _Pos) const;
+
+    // returns element at _Pos position
+    _NODISCARD constexpr reference at(const size_type _Pos);
+    _NODISCARD constexpr const_reference at(const size_type _Pos) const;
+
+    // returns iterator with first element
+    _NODISCARD constexpr iterator begin() noexcept;
+    _NODISCARD constexpr const_iterator begin() const noexcept;
+
     // clears the current working path
     constexpr void clear() noexcept;
 
@@ -374,6 +397,10 @@ public:
 
     // checks if the current working path is empty
     _NODISCARD constexpr bool empty() const noexcept;
+
+    // returns iterator with last element
+    _NODISCARD constexpr iterator end() noexcept;
+    _NODISCARD constexpr const_iterator end() const noexcept;
 
     // returns the extension from the current working path (if has)
     _NODISCARD path extension() const noexcept;
@@ -436,6 +463,10 @@ public:
     // returns the parent path from the current working path
     _NODISCARD path parent_path() const noexcept;
 
+    // returns reverse iterator with first element
+    _NODISCARD constexpr reverse_iterator rend() noexcept;
+    _NODISCARD constexpr const_reverse_iterator rend() const noexcept;
+
     // removes the directory from the current working path (if has)
     _NODISCARD path& remove_directory(const bool _With_slash = true) noexcept;
 
@@ -458,7 +489,7 @@ public:
     _NODISCARD path& replace_stem(const path& _Replacement);
 
     // resizes the path to _Newsize
-    constexpr void resize(const size_t _Newsize, const value_type _Ch = value_type(0));
+    constexpr void resize(const size_type _Newsize, const value_type _Ch = value_type(0));
 
     // returns the root directory from the current working path (if has)
     _NODISCARD path root_directory() const noexcept;
@@ -473,6 +504,9 @@ public:
     _NODISCARD path stem() const noexcept;
 
 private:
+    // verifies path size
+    constexpr void _Check_size() const;
+    
     string_type _Mytext; // current working path
 };
 
@@ -480,16 +514,16 @@ private:
 class _FILESYSTEM_API filesystem_error { // base of all filesystem errors
 public:
     filesystem_error() noexcept;
-    virtual ~filesystem_error() noexcept;
+    ~filesystem_error() noexcept;
 
     template <class _CharTy>
-    filesystem_error(const _CharTy* const _Errm) noexcept(_Is_narrow_char_t<_CharTy>);
+    filesystem_error(const _CharTy* const _Msg) noexcept(_Is_narrow_char_t<_CharTy>);
 
     template <class _CharTy>
-    filesystem_error(const _CharTy* const _Errm, const error_type _Errc) noexcept(_Is_narrow_char_t<_CharTy>);
+    filesystem_error(const _CharTy* const _Msg, const error_type _Code) noexcept(_Is_narrow_char_t<_CharTy>);
 
     template <class _CharTy>
-    filesystem_error(const _CharTy* const _Errm, const error_type _Errc, const path& _Errpos) noexcept(_Is_narrow_char_t<_CharTy>);
+    filesystem_error(const _CharTy* const _Msg, const error_type _Code, const path& _Src) noexcept(_Is_narrow_char_t<_CharTy>);
 
     _NODISCARD const error_type category() const noexcept; // error category
 
@@ -516,9 +550,9 @@ namespace path_literals {
 #pragma warning(pop)
 
 // FUNCTION _Throw_fs_error
-_FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Errm);
-_FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Errm, const error_type _Errc);
-_FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Errm, const error_type _Errc, const path& _Errpos);
+_FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Msg);
+_FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Msg, const error_type _Code);
+_FILESYSTEM_API __declspec(noreturn) void _Throw_fs_error(const char* const _Msg, const error_type _Code, const path& _Src);
 
 // verification macros
 #ifndef _FILESYSTEM_VERIFY
@@ -660,6 +694,7 @@ public:
     file_status(const file_status&) = default;
     file_status(file_status&&)      = default;
     virtual ~file_status()          = default;
+
     file_status& operator=(const file_status&) = delete;
     file_status& operator=(file_status&&) = delete;
 
@@ -667,6 +702,7 @@ public:
 
     explicit file_status(const path& _Target, const file_attributes _Attr,
         const file_permissions _Perms, const file_type _Type) noexcept;
+
     // returns attributes to current working path
     _NODISCARD const file_attributes attribute() const noexcept;
 
@@ -692,7 +728,6 @@ private:
     // sets new type to current working path
     void _Update_type(const file_type _Newtype) noexcept;
 
-private:
     path _Mypath; // current working path
     file_attributes _Myattr; // current working path attribute
     file_permissions _Myperms; // current working path right access
@@ -826,7 +861,7 @@ _FILESYSTEM_API _NODISCARD bool change_attributes(const path& _Target, const fil
 
 // FUNCTION change_permissions
 _FILESYSTEM_API _NODISCARD bool change_permissions(const path& _Target, const file_permissions _Newperms,
-    const bool _Inc_old, const bool _Symlinks);
+    const bool _Old, const bool _Links);
 _FILESYSTEM_API _NODISCARD bool change_permissions(const path& _Target, const file_permissions _Newperms);
 
 // FUNCTION clear

@@ -59,7 +59,7 @@ void file_status::_Refresh() noexcept {
     // Theoretically we could use FindFirstFile() with WIN32_FIND_DATAW, because it's a bit faster,
     // but when we use DeviceIoControl(), we are on lower level, where we can define buffer size etc.
     // It's safer as well, because if _Mypath is bad, there're only execptions from us.
-    
+
     if ((_Myattr & file_attributes::reparse_point) == file_attributes::reparse_point) {
         // In some cases _Refresh() may using more bytes than defaule maximum (16384 bytes).
         // To avoid C6262 warning and potential threat, buffor size is set to 16284 bytes.
@@ -67,13 +67,11 @@ void file_status::_Refresh() noexcept {
         // you can change buffer size.
         unsigned char _Buff[MAXIMUM_REPARSE_DATA_BUFFER_SIZE - 100];
         reparse_data_buffer& _Reparse_buff = reinterpret_cast<reparse_data_buffer&>(_Buff);
-        unsigned long _Bytes; // returned bytes from DeviceIoControl()
-
-        const HANDLE _Handle = CreateFileW(_Mypath.generic_wstring().c_str(),
+        unsigned long _Bytes               = 0; // returned bytes from DeviceIoControl()
+        const HANDLE _Handle               = CreateFileW(_Mypath.generic_wstring().c_str(),
             static_cast<unsigned long>(file_access::all), static_cast<unsigned long>(file_share::read),
             nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
                 file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
-
         _FILESYSTEM_VERIFY_HANDLE(_Handle);
         if (!DeviceIoControl(_Handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
             &_Reparse_buff, sizeof(_Buff), &_Bytes, nullptr)) { // failed to get informations
@@ -82,7 +80,6 @@ void file_status::_Refresh() noexcept {
         }
         
         CloseHandle(_Handle);
-
         if (_Reparse_buff._Reparse_tag == static_cast<unsigned long>(file_reparse_tag::mount_point)) {
             _Update_type(file_type::junction);
             return;
@@ -148,59 +145,67 @@ directory_data::directory_data(const path& _Path) noexcept {
 // FUNCTION directory_data::_Init
 void directory_data::_Init() noexcept {
     _Mypath = path();
-
     for (size_t _Idx = 0; _Idx < _Mycount.size(); ++_Idx) {
         _Mycount[_Idx] = 0;
-        _Myname[_Idx]  = {};
+        _Myname[_Idx]  = vector<path>();
     }
 }
 
 // FUNCTION directory_data::_Refresh
 void directory_data::_Refresh() noexcept {
-    if (!exists(_Mypath)) { // directory not found
-        _Throw_fs_error("directory not found", error_type::runtime_error, "_Refresh");
-    }
-
-    if (!_Is_directory(_Mypath)) { // _Refresh() is reserved for directories only
-        _Throw_fs_error("expected directory", error_type::runtime_error, "_Refresh");
-    }
+    _FILESYSTEM_VERIFY(exists(_Mypath), "directory not found", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Is_directory(_Mypath), "expected a directory", error_type::runtime_error);
 
     WIN32_FIND_DATAW _Data;
     const HANDLE _Handle = FindFirstFileExW(path(_Mypath + LR"(\*)").generic_wstring().c_str(),
         FindExInfoBasic, &_Data, FindExSearchNameMatch, nullptr, 0);
-
     _FILESYSTEM_VERIFY_HANDLE(_Handle);
-    vector<path> _All;
 
+    vector<path> _All;
     do { // get all types, they will be separated later
         _All.push_back(static_cast<const wchar_t*>(_Data.cFileName));
     } while (FindNextFileW(_Handle, &_Data));
+    
     FindClose(_Handle);
-
     _Reset(); // clear everything
     if (_All.empty()) { // nothing to do if directory is empty
         return;
     }
 
     path _Precise; // creates full path to _All[_Idx]
-
     for (const auto& _Elem : _All) {
         if (_Elem != "." && _Elem != "..") { // skip dots
             _Precise = _Mypath + LR"(\)" + _Elem;
-
-            if (is_directory(_Precise)) { // directory
+            file_status _Status(_Precise);
+            switch (_Status.type()) {
+            case file_type::none: // never happens
+                continue;
+            case file_type::not_found: // never happens
+                continue;
+            case file_type::directory:
                 _Myname[0].push_back(_Elem);
-            } else if (is_junction(_Precise)) { // junction (as directory)
-                _Myname[1].push_back(_Elem);
-            } else if (is_other(_Precise)) { // other
-                _Myname[2].push_back(_Elem);
-            } else if (is_regular_file(_Precise)) { // regular file
+                ++_Mycount[0];
+                continue;
+            case file_type::regular:
                 _Myname[3].push_back(_Elem);
-            } else if (is_symlink(_Precise)) { // symlink (directory or file)
+                ++_Mycount[3];
+                continue;
+            case file_type::symlink:
                 _Myname[4].push_back(_Elem);
+                ++_Mycount[4];
+                continue;
+            case file_type::junction:
+                _Myname[1].push_back(_Elem);
+                ++_Mycount[1];
+                continue;
+            default: // other
+                _Myname[2].push_back(_Elem);
+                ++_Mycount[2];
+                continue;
             }
 
-            _Myname[5].push_back(_Elem); // _Myname[5] (total) takes every type
+            _Myname[5].push_back(_Elem); // every type
+            ++_Mycount[5];
         }
     }
 
@@ -280,46 +285,30 @@ _NODISCARD const uintmax_t directory_data::total_count() const noexcept {
 
 // FUNCTION change_attributes
 _NODISCARD bool change_attributes(const path& _Target, const file_attributes _Newattr) {
-    if (!exists(_Target)) { // file/directory not found
-        _Throw_fs_error("path not found", error_type::runtime_error, "change_attributes");
-    }
-
-    if (!SetFileAttributesW(_Target.generic_wstring().c_str(),
-        static_cast<unsigned long>(_Newattr))) { // failed to change attributes
-        _Throw_fs_error("failed to change attributes", error_type::runtime_error, "change_attributes");
-    }
-
+    _FILESYSTEM_VERIFY(exists(_Target), "target not found", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(SetFileAttributesW(_Target.generic_wstring().c_str(),
+        static_cast<unsigned long>(_Newattr)), "failed to change attributes", error_type::runtime_error);
     return true;
 }
 
 // FUNCTION change_permissions
 _NODISCARD bool change_permissions(const path& _Target, const file_permissions _Newperms,
-    const bool _Inc_old, const bool _Links) { // _Inc_old = include old attributes, _Links = follow links (symlinks and junctions)
-    if (!exists(_Target)) { // path not found
-        _Throw_fs_error("path not found", error_type::runtime_error, "change_permissions");
-    }
-
+    const bool _Old, const bool _Links) { // _Old = include old attributes, _Links = follow links (symlinks and junctions)
+    _FILESYSTEM_VERIFY(exists(_Target), "target not found", error_type::runtime_error);
     file_status _Status(_Target);
     if (_Status.permissions() == _Newperms) { // old permissions are same as new, nothing to do
         return true;
     }
 
-    if (_Status.type() == file_type::symlink || _Status.type() == file_type::junction
-        && !_Links) { // user don't want to change permissions to links, but _Target is one of them
-        _Throw_fs_error("target is a link", error_type::runtime_error, "change_permissions");
-    }
-
+    _FILESYSTEM_VERIFY(_Status.type() == file_type::symlink || _Status.type() == file_type::junction
+        && !_Links, "target is a link", error_type::runtime_error);
     const auto _Attr{_Newperms == file_permissions::readonly ? file_attributes::readonly : file_attributes::none};
-    if (_Inc_old) { // in this cast, user adds new attributes to existing
+    if (_Old) { // in this cast, user adds new attributes to existing
         const_cast<file_attributes&>(_Attr) ^= _Status.attribute();
     }
 
-    // if _Inc_old is true, add new attribute to existing
-    if (!SetFileAttributesW(_Target.generic_wstring().c_str(),
-        static_cast<unsigned long>(_Attr))) { // failed to set new permissions
-        _Throw_fs_error("failed to set new permissions", error_type::runtime_error, "change_permissions");
-    }
-
+    _FILESYSTEM_VERIFY(SetFileAttributesW(_Target.generic_wstring().c_str(), static_cast<unsigned long>(_Attr)),
+        "failed to set new permissions", error_type::runtime_error);
     return true;
 }
 
@@ -329,16 +318,13 @@ _NODISCARD bool change_permissions(const path& _Target, const file_permissions _
 
 // FUNCTION creation_time
 _NODISCARD file_time creation_time(const path& _Target) {
-    if (!exists(_Target)) { // file/directory not found
-        _Throw_fs_error("path not found", error_type::runtime_error, "creation_time");
-    }
-
-    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
+    _FILESYSTEM_VERIFY(exists(_Target), "target not found", error_type::runtime_error);
+    const HANDLE _Handle{CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
         nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
-            file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
-
+            file_flags::backup_semantics | file_flags::open_reparse_point), nullptr)};
     _FILESYSTEM_VERIFY_HANDLE(_Handle);
+
     FILETIME _File_time;
     if (!GetFileTime(_Handle, &_File_time, nullptr, nullptr)) { // failed to get file time
         CloseHandle(_Handle); // should be closed even if function will throw an exception
@@ -347,37 +333,31 @@ _NODISCARD file_time creation_time(const path& _Target) {
 
     CloseHandle(_Handle);
 
+    // convert file time to system time and then to user time zone
     SYSTEMTIME _Sys_gen_time; // general system time
     SYSTEMTIME _Sys_exact_time; // system time in user region
-
-    if (!FileTimeToSystemTime(&_File_time, &_Sys_gen_time)) { // failed to convert time
-        _Throw_fs_error("failed to convert file time to system time", error_type::runtime_error, "creation_time");
-    }
-
-    // now we have to convert general system time to system time in user region
-    if (!SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) { // failed to convert time
-        _Throw_fs_error("failed to convert general system time to exact system time",
-            error_type::runtime_error, "creation_time");
-    }
-
+    _FILESYSTEM_VERIFY(FileTimeToSystemTime(&_File_time, &_Sys_gen_time),
+        "failed to convert file time to system time", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time),
+        "failed to convert general system time to exact system time", error_type::runtime_error);
     return {_Sys_exact_time.wYear, _Sys_exact_time.wMonth, _Sys_exact_time.wDay,
         _Sys_exact_time.wHour, _Sys_exact_time.wMinute, _Sys_exact_time.wSecond};
 }
 
+#pragma warning(push, 1)
+#pragma warning(disable : 4067) // C4067: token after preprocessor directive (?)
 // FUNCTION equivalent
 _NODISCARD bool equivalent(const path& _Left, const path& _Right) {
-    if (!exists(_Left) || !exists(_Right)) { // path not found
-        _Throw_fs_error("path not found", error_type::runtime_error, "equivalent");
-    }
+    _FILESYSTEM_VERIFY(exists(_Left) && exists(_Right), "target not found", error_type::runtime_error);
 
     file_id _Left_id;
     {
-        const HANDLE _Handle = CreateFileW(_Left.generic_wstring().c_str(),
+        const HANDLE _Handle{CreateFileW(_Left.generic_wstring().c_str(),
             static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(
             file_share::read), nullptr, static_cast<unsigned long>(file_disposition::only_if_exists),
-            static_cast<unsigned long>(file_flags::backup_semantics), nullptr); // don't use file_flags::open_reparse_point
-
+            static_cast<unsigned long>(file_flags::backup_semantics), nullptr)}; // don't use file_flags::open_reparse_point
         _FILESYSTEM_VERIFY_HANDLE(_Handle);
+
         if (!GetFileInformationByHandleEx(_Handle, FileIdInfo, &_Left_id,
             sizeof(_Left_id))) { // failed to get informations
             CloseHandle(_Handle); // should be closed even if function will throw an exception
@@ -389,12 +369,12 @@ _NODISCARD bool equivalent(const path& _Left, const path& _Right) {
 
     file_id _Right_id;
     {
-        const HANDLE _Handle = CreateFileW(_Right.generic_wstring().c_str(),
+        const HANDLE _Handle{CreateFileW(_Right.generic_wstring().c_str(),
             static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(
             file_share::read), nullptr, static_cast<unsigned long>(file_disposition::only_if_exists),
-            static_cast<unsigned long>(file_flags::backup_semantics), nullptr); // don't use file_flags::open_reparse_point
-
+            static_cast<unsigned long>(file_flags::backup_semantics), nullptr)}; // don't use file_flags::open_reparse_point
         _FILESYSTEM_VERIFY_HANDLE(_Handle);
+
         if (!GetFileInformationByHandleEx(_Handle, FileIdInfo, &_Right_id,
             sizeof(_Right_id))) { // failed to get informations
             CloseHandle(_Handle); // should be closed even if function will throw an exception
@@ -404,28 +384,14 @@ _NODISCARD bool equivalent(const path& _Left, const path& _Right) {
         CloseHandle(_Handle);
     }
 
+#if __has_builtin(__builtin_memcmp)
+    return __builtin_memcmp(&_Left_id, &_Right_id, sizeof(file_id)) == 0;
+#else // ^^^ __has_builtin(__builtin_memcmp) ^^^ / vvv !__has_builtin(__builtin_memcmp) vvv
     return _CSTD memcmp(&_Left_id, &_Right_id, sizeof(file_id)) == 0;
+#endif // __has_builtin(__builtin_memcmp)
 }
-
-// FUNCTION file_size
-_NODISCARD size_t file_size(const path& _Target) {
-    if (!exists(_Target)) { // file not found
-        _Throw_fs_error("file not found", error_type::runtime_error, "file_size");
-    }
-
-    if (_Is_directory(_Target)) { // file_size() is only for files
-        _Throw_fs_error("expected file", error_type::runtime_error, "file_size");
-    }
-
-    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(), static_cast<unsigned long>(file_access::readonly),
-        static_cast<unsigned long>(file_share::read), nullptr, static_cast<unsigned long>(file_disposition::only_if_exists),
-        static_cast<unsigned long>(file_flags::open_reparse_point), nullptr);
-
-    _FILESYSTEM_VERIFY_HANDLE(_Handle);
-    const auto _Size{static_cast<size_t>(GetFileSize(_Handle, nullptr))};
-    CloseHandle(_Handle);
-    return _Size;
-}
+#pragma warning(default : 4067)
+#pragma warning(pop)
 
 // FUNCTION exists
 _NODISCARD bool exists(const file_status _Status) noexcept {
@@ -436,13 +402,28 @@ _NODISCARD bool exists(const path& _Target) noexcept {
     return exists(file_status(_Target));
 }
 
+// FUNCTION file_size
+_NODISCARD size_t file_size(const path& _Target) {
+    _FILESYSTEM_VERIFY(exists(_Target), "file not found", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(!_Is_directory(_Target), "expected a file", error_type::runtime_error);
+
+    const HANDLE _Handle{CreateFileW(_Target.generic_wstring().c_str(), static_cast<unsigned long>(file_access::readonly),
+        static_cast<unsigned long>(file_share::read), nullptr, static_cast<unsigned long>(file_disposition::only_if_exists),
+        static_cast<unsigned long>(file_flags::open_reparse_point), nullptr)};
+    _FILESYSTEM_VERIFY_HANDLE(_Handle);
+
+    const size_t _Size{static_cast<size_t>(GetFileSize(_Handle, nullptr))};
+    CloseHandle(_Handle);
+    return _Size;
+}
+
 // FUNCTION hard_link_count
 _NODISCARD uintmax_t hard_link_count(const path& _Target, const file_flags _Flags) { // counts hard links to _Target
-    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle{CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read), nullptr,
-        static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(_Flags), nullptr);
-
+        static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(_Flags), nullptr)};
     _FILESYSTEM_VERIFY_HANDLE(_Handle);
+
     FILE_STANDARD_INFO _Info;
     if (!GetFileInformationByHandleEx(_Handle, FileStandardInfo, &_Info, sizeof(_Info))) {
         CloseHandle(_Handle); // should be closed even if function will throw an exception
@@ -477,10 +458,7 @@ _NODISCARD bool is_directory(const path& _Target) noexcept {
 
 // FUNCTION is_empty
 _NODISCARD bool is_empty(const path& _Target) {
-    if (!exists(_Target)) { // path not found
-        _Throw_fs_error("path not found", error_type::runtime_error, "is_empty");
-    }
-
+    _FILESYSTEM_VERIFY(exists(_Target), "target not found", error_type::runtime_error);
     return _Is_directory(_Target) ? directory_data(_Target).total_count() == 0 : file_size(_Target) == 0;
 }
 
@@ -545,16 +523,14 @@ _NODISCARD file_status junction_status(const path& _Target) noexcept {
 
 // FUNCTION last_access_time
 _NODISCARD file_time last_access_time(const path& _Target) {
-    if (!exists(_Target)) { // file/directory not found
-        _Throw_fs_error("path not found", error_type::runtime_error, "last_access_time");
-    }
+    _FILESYSTEM_VERIFY(exists(_Target), "target not found", error_type::runtime_error);
 
-    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle{CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
         nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
-            file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
-
+            file_flags::backup_semantics | file_flags::open_reparse_point), nullptr)};
     _FILESYSTEM_VERIFY_HANDLE(_Handle);
+
     FILETIME _File_time;
     if (!GetFileTime(_Handle, nullptr, &_File_time, nullptr)) { // failed to get file time
         CloseHandle(_Handle); // should be closed even if function will throw an exception
@@ -563,36 +539,27 @@ _NODISCARD file_time last_access_time(const path& _Target) {
 
     CloseHandle(_Handle);
 
+    // convert file time to system time and then to user time zone
     SYSTEMTIME _Sys_gen_time; // general system time
     SYSTEMTIME _Sys_exact_time; // system time in user region
-
-    if (!FileTimeToSystemTime(&_File_time, &_Sys_gen_time)) { // failed to convert time
-        _Throw_fs_error("failed to convert file time to system time", error_type::runtime_error, "last_access_time");
-    }
-
-    // now we have to convert general system time to system time in user region
-    if (!SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) {
-        // failed to convert general system time to exact system time
-        _Throw_fs_error("failed to convert general system time to exact system time",
-            error_type::runtime_error, "last_access_time");
-    }
-
+    _FILESYSTEM_VERIFY(FileTimeToSystemTime(&_File_time, &_Sys_gen_time),
+        "failed to convert file time to system time", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time),
+        "failed to convert general system time to exact system time", error_type::runtime_error);
     return {_Sys_exact_time.wYear, _Sys_exact_time.wMonth, _Sys_exact_time.wDay,
         _Sys_exact_time.wHour, _Sys_exact_time.wMinute, _Sys_exact_time.wSecond};
 }
 
 // FUNCTION last_write_time
 _NODISCARD file_time last_write_time(const path& _Target) {
-    if (!exists(_Target)) { // file/directory not found
-        _Throw_fs_error("path not found", error_type::runtime_error, "last_write_time");
-    }
+    _FILESYSTEM_VERIFY(exists(_Target), "target not found", error_type::runtime_error);
 
-    const HANDLE _Handle = CreateFileW(_Target.generic_wstring().c_str(),
+    const HANDLE _Handle{CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(file_share::read),
         nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
-            file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
-
+            file_flags::backup_semantics | file_flags::open_reparse_point), nullptr)};
     _FILESYSTEM_VERIFY_HANDLE(_Handle);
+
     FILETIME _File_time;
     if (!GetFileTime(_Handle, nullptr, nullptr, &_File_time)) { // failed to get file time
         CloseHandle(_Handle); // should be closed even if function will throw an exception
@@ -601,33 +568,21 @@ _NODISCARD file_time last_write_time(const path& _Target) {
 
     CloseHandle(_Handle);
 
+    // convert file time to system time and then to user time zone
     SYSTEMTIME _Sys_gen_time; // general system time
     SYSTEMTIME _Sys_exact_time; // system time in user region
-
-    if (!FileTimeToSystemTime(&_File_time, &_Sys_gen_time)) { // failed to convert time
-        _Throw_fs_error("failed to convert file time to system time", error_type::runtime_error, "last_write_time");
-    }
-
-    // now we have to convert general system time to system time in user region
-    if (!SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time)) {
-        // failed to convert general system time to exact system time
-        _Throw_fs_error("failed to convert general system time to exact system time",
-            error_type::runtime_error, "last_write_time");
-    }
-
+    _FILESYSTEM_VERIFY(FileTimeToSystemTime(&_File_time, &_Sys_gen_time),
+        "failed to convert file time to system time", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(SystemTimeToTzSpecificLocalTimeEx(nullptr, &_Sys_gen_time, &_Sys_exact_time),
+        "failed to convert general system time to exact system time", error_type::runtime_error);
     return {_Sys_exact_time.wYear, _Sys_exact_time.wMonth, _Sys_exact_time.wDay,
         _Sys_exact_time.wHour, _Sys_exact_time.wMinute, _Sys_exact_time.wSecond};
 }
 
 // FUNCTION shortcut_parameters
 _NODISCARD shortcut_data shortcut_parameters(const path& _Target) {
-    if (!exists(_Target)) {
-        _Throw_fs_error("shortcut not found", error_type::runtime_error, "shortcut_parameters");
-    }
-
-    if (_Target.extension() != "lnk") { // shortcut_parameters() is reserved for files with LNK extension (link) only
-        _Throw_fs_error("expected link", error_type::runtime_error, "shortcut_parameters");
-    }
+    _FILESYSTEM_VERIFY(exists(_Target), "shortcut not found", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Target.extension() == "lnk", "expected a shortcut", error_type::runtime_error);
 
     IShellLinkW* _Link     = {};
     WIN32_FIND_DATAW _Data = {}; // warning 6001 if not defined
@@ -635,38 +590,30 @@ _NODISCARD shortcut_data shortcut_parameters(const path& _Target) {
     // this functions will replace characters; size must be defined before calling them
     _Result.arguments.resize(INFOTIPSIZE);
     _Result.description.resize(INFOTIPSIZE);
-    _Result.directory.resize(_MAX_PATH);
-
+    _Result.directory.resize(_Max_path);
     _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
     _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
         reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
+    
     IPersistFile* _File;
     wstring _Buff; // buffer for shortcut icon/target path
-    _Buff.resize(_MAX_PATH); // resize before calling GetIconLocation()
-
-    _FILESYSTEM_VERIFY(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)) == S_OK,
-        "failed to query interface", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_File->Load(_Target.generic_wstring().c_str(), STGM_READ) == S_OK,
-        "failed to load the shortcut", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->Resolve(nullptr, 0) == S_OK, "failed to find shortcut target", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->GetArguments(_Result.arguments.data(), INFOTIPSIZE) == S_OK,
-        "failed to get shortcut arguments", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->GetDescription(_Result.description.data(), INFOTIPSIZE) == S_OK,
-        "failed to get shortcut description", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->GetHotkey(&_Result.hotkey) == S_OK, "failed to get shortcut key", error_type::runtime_error);
-    _Buff.resize(_MAX_PATH); // set default buffer size
-    _FILESYSTEM_VERIFY(_Link->GetIconLocation(_Buff.data(), _MAX_PATH, &_Result.icon) == S_OK,
-        "failed to get icon", error_type::runtime_error);
+    _Buff.resize(_Max_path); // resize before calling GetIconLocation()
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_File->Load(_Target.generic_wstring().c_str(), STGM_READ), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->Resolve(nullptr, 0), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetArguments(_Result.arguments.data(), INFOTIPSIZE), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetDescription(_Result.description.data(), INFOTIPSIZE), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetHotkey(&_Result.hotkey), _Link);
+    _Buff.resize(_Max_path); // set default buffer size
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetIconLocation(_Buff.data(), _Max_path, &_Result.icon), _Link);
     _Result.icon_path = _Buff;
-    _Buff.resize(_MAX_PATH); // restore buffer size
-    _FILESYSTEM_VERIFY(_Link->GetIDList(&_Result.id_list) == S_OK, "failed to get ID list", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->GetPath(_Buff.data(), _MAX_PATH, &_Data, STGM_READ) == S_OK,
-        "failed to get shortcut target path", error_type::runtime_error);
+    _Buff.resize(_Max_path); // restore buffer size
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetIDList(&_Result.id_list), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetPath(_Buff.data(), _Max_path, &_Data, STGM_READ), _Link);
     _Result.target_path = _Buff;
-    _Buff.resize(_MAX_PATH); // restore buffer size
-    _FILESYSTEM_VERIFY(_Link->GetShowCmd(&_Result.show_cmd) == S_OK, "failed to get cmd show code", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->GetWorkingDirectory(_Buff.data(), _MAX_PATH) == S_OK,
-        "failed to get working directory", error_type::runtime_error);
+    _Buff.resize(_Max_path); // restore buffer size
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetShowCmd(&_Result.show_cmd), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetWorkingDirectory(_Buff.data(), _Max_path), _Link);
     _Result.directory = _Buff;
     _File->Release();
     _Link->Release();
@@ -674,37 +621,26 @@ _NODISCARD shortcut_data shortcut_parameters(const path& _Target) {
 }
 
 _NODISCARD bool shortcut_parameters(const path& _Target, shortcut_data* const _Params) {
-    if (!exists(_Target)) {
-        _Throw_fs_error("shortcut not found", error_type::runtime_error, "shortcut_parameters");
-    }
-
-    if (_Target.extension() != "lnk") { // shortcut_parameters() is reserved for files with LNK extension (link) only
-        _Throw_fs_error("expected link", error_type::runtime_error, "shortcut_parameters");
-    }
+    _FILESYSTEM_VERIFY(exists(_Target), "shortcut not found", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(_Target.extension() == "lnk", "expected a shortcut", error_type::runtime_error);
 
     IShellLinkW* _Link;
     _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
     _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
         reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
+    
     IPersistFile* _File;
-    _FILESYSTEM_VERIFY(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)) == S_OK,
-        "failed to query interface", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_File->Load(_Target.generic_wstring().c_str(), STGM_READ) == S_OK,
-        "failed to load the shortcut", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->Resolve(nullptr, 0) == S_OK, "failed to find shortcut target", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->SetArguments(_Params->arguments.c_str()) == S_OK,
-        "failed to change shortcut parameters", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->SetDescription(_Params->description.c_str()) == S_OK,
-        "failed to change shortcut description", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->SetHotkey(_Params->hotkey) == S_OK, "failed to change shortcut key", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->SetIconLocation(_Params->icon_path.generic_wstring().c_str(), _Params->icon) == S_OK,
-        "failed to change shortcut icon path and index", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->SetIDList(_Params->id_list) == S_OK, "failed to change shortcut ID list", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->SetPath(_Params->target_path.generic_wstring().c_str()) == S_OK,
-        "failed to change shortcut target path", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->SetShowCmd(_Params->show_cmd) == S_OK, "failed to change shortcut CMD call", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Link->SetWorkingDirectory(_Params->directory.generic_wstring().c_str()) == S_OK,
-        "failed to change shortcut working directory", error_type::runtime_error);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_File->Load(_Target.generic_wstring().c_str(), STGM_READ), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->Resolve(nullptr, 0), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetArguments(_Params->arguments.c_str()), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetDescription(_Params->description.c_str()), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetHotkey(_Params->hotkey), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetIconLocation(_Params->icon_path.generic_wstring().c_str(), _Params->icon), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetIDList(_Params->id_list), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetPath(_Params->target_path.generic_wstring().c_str()), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetShowCmd(_Params->show_cmd), _Link);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetWorkingDirectory(_Params->directory.generic_wstring().c_str()), _Link);
     _File->Release();
     _Link->Release();
     return true;
@@ -712,16 +648,12 @@ _NODISCARD bool shortcut_parameters(const path& _Target, shortcut_data* const _P
 
 // FUNCTION space
 _NODISCARD disk_space space(const path& _Target) {
-    disk_space _Result;
+    disk_space _Result    = disk_space();
     const auto _Available = reinterpret_cast<PULARGE_INTEGER>(&_Result.available);
     const auto _Capacity  = reinterpret_cast<PULARGE_INTEGER>(&_Result.capacity);
     const auto _Free      = reinterpret_cast<PULARGE_INTEGER>(&_Result.free);
-
-    if (!GetDiskFreeSpaceExW(_Target.generic_wstring().c_str(), _Available,
-        _Capacity, _Free)) { // failed to get informations
-        _Throw_fs_error("failed to get informations", error_type::runtime_error, "space");
-    }
-
+    _FILESYSTEM_VERIFY(GetDiskFreeSpaceExW(_Target.generic_wstring().c_str(), _Available,
+        _Capacity, _Free), "failed to get informations", error_type::runtime_error);
     return _Result;
 }
 
@@ -730,7 +662,6 @@ _NODISCARD file_status status(const path& _Target) noexcept {
     // The status() is reserved for real files/directories,
     // so if _Target isn't one of them, read symbolic link/junction and return status of real one.
     const auto _Status{file_status(_Target)};
-
     if (_Status.type() == file_type::junction) {
         return file_status(read_junction(_Target));
     }
