@@ -14,7 +14,7 @@
 
 _FILESYSTEM_BEGIN
 // FUNCTION _Convert_narrow_to_wide
-_NODISCARD wstring _Convert_narrow_to_wide(const code_page _Code_page, const string_view _Input) {
+_NODISCARD wstring _Convert_narrow_to_wide(const code_page _Cp, const string_view _Input) {
     if (!_Input.empty()) {
         if (_Input.size() > static_cast<size_t>(INT_MAX)) {
             _Throw_system_error("_Convert_narrow_to_wide", "invalid length", error_type::length_error);
@@ -22,14 +22,13 @@ _NODISCARD wstring _Convert_narrow_to_wide(const code_page _Code_page, const str
 
         wstring _Output;
         const int _Input_size  = static_cast<int>(_Input.size());
-        const int _Output_size = _Input_size;
+        const int _Output_size = _Input_size; // the same size
     
         // The MultiByteToWideChar() replaces multi byte to wide characters,
         // so _Output size must be same as _Input size.
         _Output.resize(_Output_size, L' ');
-
-        if (!MultiByteToWideChar(static_cast<uint32_t>(_Code_page), MB_ERR_INVALID_CHARS,
-            _Input.data(), _Input_size, _Output.data(), _Output_size)) { // failed to convert multi byte to wide characters
+        if (!MultiByteToWideChar(static_cast<uint32_t>(_Cp), MB_ERR_INVALID_CHARS,
+            _Input.data(), _Input_size, _Output.data(), _Output_size)) { 
             _Throw_system_error("_Convert_narrow_to_wide", "conversion failed", error_type::runtime_error);
         }
 
@@ -44,7 +43,7 @@ _NODISCARD wstring _Convert_narrow_to_wide(const code_page _Code_page, const str
 }
 
 // FUNCTION _Convert_wide_to_narrow
-_NODISCARD string _Convert_wide_to_narrow(const code_page _Code_page, const wstring_view _Input) {
+_NODISCARD string _Convert_wide_to_narrow(const code_page _Cp, const wstring_view _Input) {
     if (!_Input.empty()) {
         if (_Input.size() > static_cast<size_t>(INT_MAX)) {
             _Throw_system_error("_Convert_wide_to_narrow", "invalid length", error_type::length_error);
@@ -57,10 +56,8 @@ _NODISCARD string _Convert_wide_to_narrow(const code_page _Code_page, const wstr
         // The WideCharToMultiByte() replaces multi byte to wide characters.
         // _Output size must be same as _Input size.
         _Output.resize(_Output_size, ' ');
-
-        if (!WideCharToMultiByte(static_cast<uint32_t>(_Code_page), WC_ERR_INVALID_CHARS,
+        if (!WideCharToMultiByte(static_cast<uint32_t>(_Cp), WC_ERR_INVALID_CHARS,
             _Input.data(), _Input_size, _Output.data(), _Output_size, nullptr, nullptr)) { 
-            // failed to convert wide to multi byte charracters 
             _Throw_system_error("_Convert_wide_to_narrow", "conversion failed", error_type::runtime_error);
         }
 
@@ -82,7 +79,7 @@ _NODISCARD string _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits>
             _Throw_system_error("_Convert_utf_to_wide", "invalid length", error_type::length_error);
         }
 
-        // check if _Elem is equal to default character types
+        // check that _Elem is the default character types
         if constexpr (_Is_narrow_char_t<_Elem>) {
             return string(_Input);
         } else if constexpr (_STD is_same_v<_Elem, wchar_t>) {
@@ -90,10 +87,9 @@ _NODISCARD string _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits>
         }
 
         string _Output;
-
         _Output.reserve(_Input.size()); // reserve place for new data
 
-        // if _Elem isn't to equal to char or wchar_t, use wstring_convert,
+        // If _Elem isn't char or wchar_t, use wstring_convert,
         // instead of Windows functions (MultiByteToWideChar() and WideCharToMultiByte()).
         if constexpr (_STD is_same_v<_Elem, char8_t>) { // from char8_t
             _Output = wstring_convert<codecvt_utf8<char8_t>, char8_t>().to_bytes(_Input.data());
@@ -127,7 +123,7 @@ _NODISCARD basic_string<_Elem, _Traits, _Alloc> _Convert_narrow_to_utf(const str
             _Throw_system_error("_Convert_narrow_to_utf", "invalid length", error_type::runtime_error);
         }
 
-        // check if _Elem is equal to default character types
+        // check that _Elem is the default character types
         if constexpr (_Is_narrow_char_t<_Elem>) {
             return string(_Input);
         } else if constexpr (_STD is_same_v<_Elem, wchar_t>) {
@@ -135,10 +131,9 @@ _NODISCARD basic_string<_Elem, _Traits, _Alloc> _Convert_narrow_to_utf(const str
         }
 
         _Str_t _Output;
-
         _Output.reserve(_Input.size()); // reserve place for new data
 
-        // if _Elem isn't to equal to char or wchar_t, use wstring_convert,
+        // If _Elem isn't char or wchar_t, use wstring_convert,
         // instead of Windows functions (MultiByteToWideChar() and WideCharToMultiByte()).
         if constexpr (_STD is_same_v<_Elem, char8_t>) { // to char8_t
             _Output = wstring_convert<codecvt_utf8<char8_t>, char8_t>().from_bytes(_Input.data());

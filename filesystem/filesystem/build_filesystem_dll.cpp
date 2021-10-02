@@ -13,7 +13,7 @@
 #endif // _HAS_CXX20
 #endif // _MAYBE_UNUSED
 
-BOOL __stdcall DllMain(HMODULE, unsigned long _Reason, _MAYBE_UNUSED void*) {
+int __stdcall DllMain(HMODULE, unsigned long _Reason, _MAYBE_UNUSED void*) {
     switch (_Reason) {
     case DLL_PROCESS_ATTACH:
     case DLL_THREAD_ATTACH:
@@ -22,7 +22,7 @@ BOOL __stdcall DllMain(HMODULE, unsigned long _Reason, _MAYBE_UNUSED void*) {
         break;
     }
 
-    return TRUE;
+    return 1;
 }
 
 // won't be used anymore
