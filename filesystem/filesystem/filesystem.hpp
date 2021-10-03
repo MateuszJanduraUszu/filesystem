@@ -173,9 +173,6 @@ using _STD vector;
 // STD characters
 using _STD char_traits;
 
-// STD conditions
-using _STD enable_if;
-
 // STD conversion
 using _STD codecvt_utf8;
 using _STD codecvt_utf8_utf16;
@@ -244,14 +241,14 @@ inline constexpr bool _Is_narrow_src_t = _STD _Is_any_of_v<_Ty, string, string_v
 inline constexpr size_t _Max_path = 260;
 
 // ENUM CLASS error_type
-enum class error_type : unsigned int { // error type for _Throw_system_error
+enum class _FILESYSTEM_API error_type : unsigned int { // error type for _Throw_system_error
     invalid_argument,
     length_error,
     runtime_error
 };
 
 // ENUM CLASS code_page
-enum class code_page {
+enum class _FILESYSTEM_API code_page {
     acp  = 0, // ansi code page
     utf8 = 65001 // default code page
 };
@@ -267,37 +264,38 @@ _FILESYSTEM_API _NODISCARD string _Convert_wide_to_narrow(const code_page _Cp, c
 
 // FUNCTION TEMPLATE _Convert_utf_to_wide
 template <class _Elem, class _Traits = char_traits<_Elem>>
-_FILESYSTEM_API _NODISCARD string _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input) noexcept(_Is_narrow_char_t<_Elem>);
+_FILESYSTEM_API _NODISCARD constexpr string _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input) noexcept(_Is_narrow_char_t<_Elem>);
 
 // FUNCTION TEMPLATE _Convert_narrow_to_utf
 template <class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
-_FILESYSTEM_API _NODISCARD basic_string<_Elem, _Traits, _Alloc> _Convert_narrow_to_utf(const string_view _Input) noexcept(_Is_narrow_char_t<_Elem>);
+_FILESYSTEM_API _NODISCARD constexpr basic_string<_Elem, _Traits, _Alloc> _Convert_narrow_to_utf(
+    const string_view _Input) noexcept(_Is_narrow_char_t<_Elem>);
 
 // FUNCTION TEMPLATE _Convert_to_narrow
 template <class _Elem, class _Traits = char_traits<_Elem>>
-_FILESYSTEM_API _NODISCARD string _Convert_to_narrow(const basic_string_view<_Elem, _Traits> _Input) noexcept(_Is_narrow_char_t<_Elem>);
+_FILESYSTEM_API _NODISCARD constexpr string _Convert_to_narrow(const basic_string_view<_Elem, _Traits> _Input) noexcept(_Is_narrow_char_t<_Elem>);
 
 // PREDEFINED CLASS path
 class path;
 
 // FUNCTION TEMPLATE operator>>
 template <class _Elem, class _Traits = char_traits<_Elem>>
-_FILESYSTEM_API _NODISCARD basic_istream<_Elem, _Traits>& operator>>(basic_istream<_Elem, _Traits>& _Istr, path& _Path);
+_FILESYSTEM_API _NODISCARD constexpr basic_istream<_Elem, _Traits>& operator>>(basic_istream<_Elem, _Traits>& _Istr, path& _Path);
 
 // FUNCTION TEMPLATE operator<<
 template <class _Elem, class _Traits = char_traits<_Elem>>
-_FILESYSTEM_API _NODISCARD basic_ostream<_Elem, _Traits>& operator<<(basic_ostream<_Elem, _Traits>& _Ostr, const path& _Path);
+_FILESYSTEM_API _NODISCARD constexpr basic_ostream<_Elem, _Traits>& operator<<(basic_ostream<_Elem, _Traits>& _Ostr, const path& _Path);
 
 // FUNCTION TEMPLATE operator+
 _FILESYSTEM_API _NODISCARD path operator+(const path& _Left, const path& _Right);
 template <class _CharTy>
-_FILESYSTEM_API _NODISCARD path operator+(const path& _Left, const _CharTy* const _Right);
+_FILESYSTEM_API _NODISCARD constexpr path operator+(const path& _Left, const _CharTy* const _Right);
 template <class _CharTy>
-_FILESYSTEM_API _NODISCARD path operator+(const _CharTy* const _Left, const path& _Right);
+_FILESYSTEM_API _NODISCARD constexpr path operator+(const _CharTy* const _Left, const path& _Right);
 template <class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
-_FILESYSTEM_API _NODISCARD path operator+(const path& _Left, const basic_string<_Elem, _Traits, _Alloc>& _Right);
+_FILESYSTEM_API _NODISCARD constexpr path operator+(const path& _Left, const basic_string<_Elem, _Traits, _Alloc>& _Right);
 template <class _Elem, class _Traits = char_traits<_Elem>, class _Alloc = allocator<_Elem>>
-_FILESYSTEM_API _NODISCARD path operator+(const basic_string<_Elem, _Traits, _Alloc>& _Left, const path& _Right);
+_FILESYSTEM_API _NODISCARD constexpr path operator+(const basic_string<_Elem, _Traits, _Alloc>& _Left, const path& _Right);
 
 // CLASS path
 class _FILESYSTEM_API path { // takes any string of characters
@@ -525,16 +523,19 @@ public:
     template <class _CharTy>
     filesystem_error(const _CharTy* const _Msg, const error_type _Code, const path& _Src) noexcept(_Is_narrow_char_t<_CharTy>);
 
-    _NODISCARD const error_type category() const noexcept; // error category
+    // error category from error_type enum
+    _NODISCARD const error_type category() const noexcept;
 
-    _NODISCARD const path& source() const noexcept; // error source
+    // error source
+    _NODISCARD const path& source() const noexcept;
     
-    _NODISCARD const char* what() const noexcept; // informations about error
+    // informations about error
+    _NODISCARD const string& what() const noexcept;
 
 private:
     path _Mysrc; // source of the error
     error_type _Mycat; // error category
-    const char* _Mywhat; // error message
+    string _Mywhat; // error message
 };
 
 #pragma warning(push)
@@ -603,7 +604,7 @@ _FILESYSTEM_API _NODISCARD path current_path() noexcept;
 _FILESYSTEM_API _NODISCARD bool current_path(const path& _Path);
 
 // FUNCTION make_path
-_FILESYSTEM_API _NODISCARD path make_path(const path& _Path);
+_FILESYSTEM_API _NODISCARD path make_path(const path& _Path, const bool _Module);
 
 // ENUM CLASS file_access
 enum class _FILESYSTEM_API file_access : unsigned long {
@@ -758,7 +759,8 @@ public:
     directory_data() noexcept;
     explicit directory_data(const directory_data&) noexcept = delete;
     explicit directory_data(directory_data&&) noexcept      = delete;
-    virtual ~directory_data() noexcept                      = default;
+    ~directory_data() noexcept                              = default;
+
     directory_data& operator=(const directory_data&) noexcept = delete;
     directory_data& operator=(directory_data&&) noexcept = delete;
 
@@ -930,8 +932,12 @@ _FILESYSTEM_API _NODISCARD bool create_hard_link(const path& _To, const path& _H
 _FILESYSTEM_API _NODISCARD bool create_junction(const path& _To, const path& _Junction);
 
 // FUNCTION TEMPLATE create_shortcut
+#ifdef _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
+_FILESYSTEM_API _NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut);
+#else // ^^^ _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS ^^^ / vvv !_FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS vvv
 template <class _CharTy>
 _FILESYSTEM_API _NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut, const _CharTy* const _Description = nullptr);
+#endif // _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
 
 // FUNCTION create_symlink
 _FILESYSTEM_API _NODISCARD bool create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags);
@@ -1042,7 +1048,7 @@ _FILESYSTEM_API _NODISCARD bool rename(const path& _Old, const path& _New);
 _FILESYSTEM_API _NODISCARD bool resize_file(const path& _Target, const size_t _Newsize);
 
 // STRUCT shortcut_data
-struct _FILESYSTEM_API shortcut_data final { // warinig C6001 if not defined
+struct _FILESYSTEM_API _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS shortcut_data final { // warinig C6001 if not defined
     wstring arguments{};
     wstring description{};
     uint16_t hotkey{};
@@ -1055,8 +1061,8 @@ struct _FILESYSTEM_API shortcut_data final { // warinig C6001 if not defined
 };
 
 // FUNCTION shortcut_parameters
-_FILESYSTEM_API _NODISCARD shortcut_data shortcut_parameters(const path& _Target);
-_FILESYSTEM_API _NODISCARD bool _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS shortcut_parameters(
+_FILESYSTEM_API _NODISCARD _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS shortcut_data shortcut_parameters(const path& _Target);
+_FILESYSTEM_API _NODISCARD _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS bool shortcut_parameters(
     const path& _Target, shortcut_data* const _Params);
 
 // STRUCT disk_space
@@ -1084,19 +1090,19 @@ _FILESYSTEM_API _NODISCARD path temp_directory_path();
 
 // FUNCTION TEMPLATE write_back
 template <class _CharTy>
-_FILESYSTEM_API _NODISCARD bool write_back(const path& _Target, const _CharTy* const _Writable);
+_FILESYSTEM_API _NODISCARD constexpr bool write_back(const path& _Target, const _CharTy* const _Writable);
 
 // FUNCTION TEMPLATE write_front
 template <class _CharTy>
-_FILESYSTEM_API _NODISCARD bool write_front(const path& _Target, const _CharTy* const _Writable);
+_FILESYSTEM_API _NODISCARD constexpr bool write_front(const path& _Target, const _CharTy* const _Writable);
 
 // FUNCTION TEMPLATE write_inside
 template <class _CharTy>
-_FILESYSTEM_API _NODISCARD bool write_inside(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line);
+_FILESYSTEM_API _NODISCARD constexpr bool write_inside(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line);
 
 // FUNCTION TEMPLATE write_instead
 template <class _CharTy>
-_FILESYSTEM_API _NODISCARD bool write_instead(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line);
+_FILESYSTEM_API _NODISCARD constexpr bool write_instead(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line);
 _FILESYSTEM_END
 
 #pragma warning(pop)

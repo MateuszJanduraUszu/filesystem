@@ -65,10 +65,10 @@ void file_status::_Refresh() noexcept {
         // To avoid C6262 warning and potential threat, buffor size is set to 16284 bytes.
         // It shouldn't change result and it's safer. If your /analyse:stacksize is set to larger value,
         // you can change buffer size.
-        unsigned char _Buff[MAXIMUM_REPARSE_DATA_BUFFER_SIZE - 100];
-        reparse_data_buffer& _Reparse_buff = reinterpret_cast<reparse_data_buffer&>(_Buff);
-        unsigned long _Bytes               = 0; // returned bytes from DeviceIoControl()
-        const HANDLE _Handle               = CreateFileW(_Mypath.generic_wstring().c_str(),
+        unsigned char _Buff[MAXIMUM_REPARSE_DATA_BUFFER_SIZE - 100] = {};
+        reparse_data_buffer& _Reparse_buff                          = reinterpret_cast<reparse_data_buffer&>(_Buff);
+        unsigned long _Bytes                                        = 0; // returned bytes from DeviceIoControl()
+        const HANDLE _Handle                                        = CreateFileW(_Mypath.generic_wstring().c_str(),
             static_cast<unsigned long>(file_access::all), static_cast<unsigned long>(file_share::read),
             nullptr, static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
                 file_flags::backup_semantics | file_flags::open_reparse_point), nullptr);
@@ -156,8 +156,8 @@ void directory_data::_Refresh() noexcept {
     _FILESYSTEM_VERIFY(exists(_Mypath), "directory not found", error_type::runtime_error);
     _FILESYSTEM_VERIFY(_Is_directory(_Mypath), "expected a directory", error_type::runtime_error);
 
-    WIN32_FIND_DATAW _Data;
-    const HANDLE _Handle = FindFirstFileExW(path(_Mypath + LR"(\*)").generic_wstring().c_str(),
+    WIN32_FIND_DATAW _Data = WIN32_FIND_DATAW();
+    const HANDLE _Handle   = FindFirstFileExW(path(_Mypath + LR"(\*)").generic_wstring().c_str(),
         FindExInfoBasic, &_Data, FindExSearchNameMatch, nullptr, 0);
     _FILESYSTEM_VERIFY_HANDLE(_Handle);
 
@@ -165,7 +165,7 @@ void directory_data::_Refresh() noexcept {
     do { // get all types, they will be separated later
         _All.push_back(static_cast<const wchar_t*>(_Data.cFileName));
     } while (FindNextFileW(_Handle, &_Data));
-    
+
     FindClose(_Handle);
     _Reset(); // clear everything
     if (_All.empty()) { // nothing to do if directory is empty
@@ -177,6 +177,8 @@ void directory_data::_Refresh() noexcept {
         if (_Elem != "." && _Elem != "..") { // skip dots
             _Precise = _Mypath + LR"(\)" + _Elem;
             file_status _Status(_Precise);
+            _Myname[5].push_back(_Elem); // each type
+            ++_Mycount[5];
             switch (_Status.type()) {
             case file_type::none: // never happens
                 continue;
@@ -203,14 +205,7 @@ void directory_data::_Refresh() noexcept {
                 ++_Mycount[2];
                 continue;
             }
-
-            _Myname[5].push_back(_Elem); // every type
-            ++_Mycount[5];
         }
-    }
-
-    for (size_t _Idx = 0; _Idx < _Myname.size(); ++_Idx) {
-        _Mycount[_Idx] = _Myname[_Idx].size();
     }
 }
 
@@ -350,7 +345,7 @@ _NODISCARD file_time creation_time(const path& _Target) {
 _NODISCARD bool equivalent(const path& _Left, const path& _Right) {
     _FILESYSTEM_VERIFY(exists(_Left) && exists(_Right), "target not found", error_type::runtime_error);
 
-    file_id _Left_id;
+    file_id _Left_id{file_id()};
     {
         const HANDLE _Handle{CreateFileW(_Left.generic_wstring().c_str(),
             static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(
@@ -367,7 +362,7 @@ _NODISCARD bool equivalent(const path& _Left, const path& _Right) {
         CloseHandle(_Handle);
     }
 
-    file_id _Right_id;
+    file_id _Right_id{file_id()};
     {
         const HANDLE _Handle{CreateFileW(_Right.generic_wstring().c_str(),
             static_cast<unsigned long>(file_access::readonly), static_cast<unsigned long>(
@@ -424,7 +419,7 @@ _NODISCARD uintmax_t hard_link_count(const path& _Target, const file_flags _Flag
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(_Flags), nullptr)};
     _FILESYSTEM_VERIFY_HANDLE(_Handle);
 
-    FILE_STANDARD_INFO _Info;
+    FILE_STANDARD_INFO _Info{FILE_STANDARD_INFO()};
     if (!GetFileInformationByHandleEx(_Handle, FileStandardInfo, &_Info, sizeof(_Info))) {
         CloseHandle(_Handle); // should be closed even if function will throw an exception
         _Throw_fs_error("failed to get informations", error_type::runtime_error, "hard_link_count");
@@ -595,8 +590,8 @@ _NODISCARD shortcut_data shortcut_parameters(const path& _Target) {
     _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
         reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
     
-    IPersistFile* _File;
-    wstring _Buff; // buffer for shortcut icon/target path
+    IPersistFile* _File = {};
+    wstring _Buff       = wstring(); // buffer for shortcut icon/target path
     _Buff.resize(_Max_path); // resize before calling GetIconLocation()
     _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
     _FILESYSTEM_VERIFY_COM_RESULT(_File->Load(_Target.generic_wstring().c_str(), STGM_READ), _Link);
@@ -624,12 +619,12 @@ _NODISCARD bool shortcut_parameters(const path& _Target, shortcut_data* const _P
     _FILESYSTEM_VERIFY(exists(_Target), "shortcut not found", error_type::runtime_error);
     _FILESYSTEM_VERIFY(_Target.extension() == "lnk", "expected a shortcut", error_type::runtime_error);
 
-    IShellLinkW* _Link;
+    IShellLinkW* _Link{};
     _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
     _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
         reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
     
-    IPersistFile* _File;
+    IPersistFile* _File{};
     _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
     _FILESYSTEM_VERIFY_COM_RESULT(_File->Load(_Target.generic_wstring().c_str(), STGM_READ), _Link);
     _FILESYSTEM_VERIFY_COM_RESULT(_Link->Resolve(nullptr, 0), _Link);

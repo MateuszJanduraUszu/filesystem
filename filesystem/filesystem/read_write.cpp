@@ -17,8 +17,8 @@ _NODISCARD bool clear(const path& _Target) { // if directory, removes everything
     if (!is_empty(_Target)) {
         if (_Is_directory(_Target)) {
             // don't use remove_all(), because it will remove _Target as well
-            const auto _All{directory_data(_Target).total()};
-            for (const auto& _Elem : _All) { // remove one by one if _Target is directory
+            const directory_data _Dir(_Target);
+            for (const auto& _Elem : _Dir.total()) { // remove one by one if _Target is directory
                 if (_Is_directory(_Target + R"(\)" + _Elem) && !is_empty(_Target + R"(\)" + _Elem)) { // non-empty directory
                     // If we don't check if directory is empty and won't be, remove() will throw an exception.
                     (void) remove_all(_Target + R"(\)" + _Elem);
@@ -262,7 +262,7 @@ _NODISCARD bool resize_file(const path& _Target, const size_t _Newsize) {
 
 // FUNCTION TEMPLATE write_back
 template <class _CharTy>
-_NODISCARD bool write_back(const path& _Target, const _CharTy* const _Writable) {
+_NODISCARD constexpr bool write_back(const path& _Target, const _CharTy* const _Writable) {
     _FILESYSTEM_VERIFY(exists(_Target), "file not found", error_type::runtime_error);
     _FILESYSTEM_VERIFY(!_Is_directory(_Target), "expected a file", error_type::runtime_error);
 
@@ -292,7 +292,7 @@ template _FILESYSTEM_API _NODISCARD bool write_back(const path&, const wchar_t* 
 
 // FUNCTION TEMPLATE write_front
 template <class _CharTy>
-_NODISCARD bool write_front(const path& _Target, const _CharTy* const _Writable) {
+_NODISCARD constexpr bool write_front(const path& _Target, const _CharTy* const _Writable) {
     _FILESYSTEM_VERIFY(exists(_Target), "file not found", error_type::runtime_error);
     _FILESYSTEM_VERIFY(!_Is_directory(_Target), "expected a file", error_type::runtime_error);
 
@@ -334,7 +334,7 @@ template _FILESYSTEM_API _NODISCARD bool write_front(const path&, const wchar_t*
 
 // FUNCTION TEMPLATE write_inside
 template <class _CharTy>
-_NODISCARD bool write_inside(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line) {
+_NODISCARD constexpr bool write_inside(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line) {
     _FILESYSTEM_VERIFY(exists(_Target), "file not found", error_type::runtime_error);
     _FILESYSTEM_VERIFY(!_Is_directory(_Target), "expected a file", error_type::runtime_error);
     const auto& _All    = read_all(_Target);
@@ -385,7 +385,7 @@ template _FILESYSTEM_API _NODISCARD bool write_inside(const path& _Target, const
 
 // FUNCTION TEMPLATE write_instead
 template <class _CharTy>
-_NODISCARD bool write_instead(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line) {
+_NODISCARD constexpr bool write_instead(const path& _Target, const _CharTy* const _Writable, const uintmax_t _Line) {
     _FILESYSTEM_VERIFY(exists(_Target), "file not found", error_type::runtime_error);
     _FILESYSTEM_VERIFY(!_Is_directory(_Target), "expected a file", error_type::runtime_error);
     const string& _Narrow_writable = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Writable);

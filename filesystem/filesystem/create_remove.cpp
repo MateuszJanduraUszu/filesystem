@@ -30,12 +30,12 @@ _NODISCARD bool copy(const path& _From, const path& _To, const copy_options _Opt
                 // Last character from source must be 0. Without it SHFileOperationW() will create empty directory in target path
                 const_cast<wstring&>(_Src).push_back(L'\0');
 
-                SHFILEOPSTRUCTW _Ops;
-                _Ops.fFlags = FOF_NOCONFIRMATION | FOF_NOCONFIRMMKDIR | FOF_NOERRORUI | FOF_SILENT;
-                _Ops.hwnd   = nullptr; // never used in this case
-                _Ops.pFrom  = _Src.c_str();
-                _Ops.pTo    = _Dest.c_str();
-                _Ops.wFunc  = FO_COPY;
+                SHFILEOPSTRUCTW _Ops = SHFILEOPSTRUCTW();
+                _Ops.fFlags          = FOF_NOCONFIRMATION | FOF_NOCONFIRMMKDIR | FOF_NOERRORUI | FOF_SILENT;
+                _Ops.hwnd            = nullptr; // never used in this case
+                _Ops.pFrom           = _Src.c_str();
+                _Ops.pTo             = _Dest.c_str();
+                _Ops.wFunc           = FO_COPY;
                 _FILESYSTEM_VERIFY(SHFileOperationW(&_Ops) == 0, "failed to copy the directory", error_type::runtime_error);
             } else { // unknown error
                 _Throw_fs_error("failed to copy file", error_type::runtime_error, "copy");
@@ -112,12 +112,12 @@ _NODISCARD bool copy(const path& _From, const path& _To, const copy_options _Opt
             // Last char from source must be 0. Without it SHFileOperationW() will create empty directory in target path.
             const_cast<wstring&>(_Src).push_back(L'\0');
             
-            SHFILEOPSTRUCTW _Ops;
-            _Ops.fFlags = FOF_NOCONFIRMATION | FOF_NOCONFIRMMKDIR | FOF_NOERRORUI | FOF_SILENT;
-            _Ops.hwnd   = nullptr; // never used in this case
-            _Ops.pFrom  = _Src.c_str();
-            _Ops.pTo    = _Dest.c_str();
-            _Ops.wFunc  = FO_COPY;
+            SHFILEOPSTRUCTW _Ops = SHFILEOPSTRUCTW();
+            _Ops.fFlags          = FOF_NOCONFIRMATION | FOF_NOCONFIRMMKDIR | FOF_NOERRORUI | FOF_SILENT;
+            _Ops.hwnd            = nullptr; // never used in this case
+            _Ops.pFrom           = _Src.c_str();
+            _Ops.pTo             = _Dest.c_str();
+            _Ops.wFunc           = FO_COPY;
             _FILESYSTEM_VERIFY(SHFileOperationW(&_Ops) == 0, "failed to copy the directory", error_type::runtime_error);
             return true;
         }
@@ -298,8 +298,8 @@ _NODISCARD bool create_junction(const path& _To, const path& _Junction) {
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr)};
     _FILESYSTEM_VERIFY_HANDLE(_Handle);
 
-    unsigned char _Buff[sizeof(reparse_data_buffer) + _Max_path * sizeof(wchar_t)];
-    reparse_mountpoint_data_buffer& _Reparse_buff = reinterpret_cast<reparse_mountpoint_data_buffer&>(_Buff);
+    unsigned char _Buff[sizeof(reparse_data_buffer) + _Max_path * sizeof(wchar_t)] = {};
+    reparse_mountpoint_data_buffer& _Reparse_buff                                  = reinterpret_cast<reparse_mountpoint_data_buffer&>(_Buff);
 
     // set informations about reparse point
     _CSTD memset(_Buff, 0, sizeof(_Buff));
@@ -325,22 +325,28 @@ _NODISCARD bool create_junction(const path& _To, const path& _Junction) {
 #pragma warning(pop)
 
 // FUNCTION TEMPLATE create_shortcut
+#ifdef _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
+_NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut) {
+#else // ^^^ _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS ^^^ / vvv !_FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS vvv
 template <class _CharTy>
 _NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut, const _CharTy* const _Description) {
+#endif // _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
     _FILESYSTEM_VERIFY(exists(_To), "file not found", error_type::runtime_error);
     _FILESYSTEM_VERIFY(!_Is_directory(_To), "expected a file", error_type::runtime_error);
 
-    IShellLinkW* _Link;
+    IShellLinkW* _Link{};
     _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
     _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
         reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
+    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetPath(_To.generic_wstring().c_str()), _Link);
+#ifndef _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
     // Current version don't offerts conversion between char[16/32]_t and wchar_t.
     // First convert to narrow, and then from narrow to wide.
     const auto& _Narrow = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Description);
     const auto& _Wide   = _Convert_narrow_to_wide(code_page::utf8, _Narrow.c_str());
-    IPersistFile* _File = {};
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetPath(_To.generic_wstring().c_str()), _Link);
     _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetDescription(_Wide.c_str()), _Link);
+#endif // _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
+    IPersistFile* _File = {};
     _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
     _FILESYSTEM_VERIFY_COM_RESULT(_File->Save(_Shortcut.generic_wstring().c_str(), true), _Link);
     _File->Release();
@@ -348,11 +354,13 @@ _NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut, const _C
     return true;
 }
 
+#ifndef _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
 template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char* const);
 template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char8_t* const);
 template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char16_t* const);
 template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char32_t* const);
 template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const wchar_t* const);
+#endif // _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
 
 // FUNCTION create_symlink
 _NODISCARD bool create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags) {
@@ -392,7 +400,7 @@ _NODISCARD bool remove_all(const path& _Path) { // removes directory with all co
     // In this case we use only fFlags, pFrom and wFunc.
     // Rest are unnecessary and they can have any value, but they must be defined.
     // Without it SHFileOperationW() will throw an exception.
-    SHFILEOPSTRUCTW _Ops;
+    SHFILEOPSTRUCTW _Ops       = SHFILEOPSTRUCTW();
     _Ops.fAnyOperationsAborted = false;
     _Ops.fFlags                = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT;
     _Ops.hNameMappings         = nullptr;
@@ -417,9 +425,9 @@ _NODISCARD bool remove_junction(const path& _Target) {
             file_flags::backup_semantics | file_flags::open_reparse_point), nullptr)};
     _FILESYSTEM_VERIFY_HANDLE(_Handle);
 
-    unsigned char _Buff[8 /* REPARSE_MOUNTPOINT_HEADER_SIZE */];
-    reparse_mountpoint_data_buffer& _Reparse_buff = reinterpret_cast<reparse_mountpoint_data_buffer&>(_Buff);
-    unsigned long _Bytes; // returned bytes from DeviceIoControl()
+    unsigned char _Buff[8 /* REPARSE_MOUNTPOINT_HEADER_SIZE */] = {};
+    reparse_mountpoint_data_buffer& _Reparse_buff               = reinterpret_cast<reparse_mountpoint_data_buffer&>(_Buff);
+    unsigned long _Bytes                                        = 0; // returned bytes from DeviceIoControl()
 
     // set new information to _Target
     _CSTD memset(_Buff, 0, sizeof(_Buff));

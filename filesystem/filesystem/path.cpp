@@ -13,7 +13,7 @@
 _FILESYSTEM_BEGIN
 // FUNCTION TEMPLATE operator>>
 template <class _Elem, class _Traits>
-_NODISCARD basic_istream<_Elem, _Traits>& operator>>(basic_istream<_Elem, _Traits>& _Istr, path& _Path) {
+_NODISCARD constexpr basic_istream<_Elem, _Traits>& operator>>(basic_istream<_Elem, _Traits>& _Istr, path& _Path) {
     basic_string<_Elem, _Traits, allocator<_Elem>> _Input;
     _Istr >> _Input;
     _Path = _STD move(_Input);
@@ -25,7 +25,7 @@ template _FILESYSTEM_API _NODISCARD wistream& operator>>(wistream&, path&);
 
 // FUNCTION TEMPLATE operator<<
 template <class _Elem, class _Traits>
-_NODISCARD basic_ostream<_Elem, _Traits>& operator<<(basic_ostream<_Elem, _Traits>& _Ostr, const path& _Path) {
+_NODISCARD constexpr basic_ostream<_Elem, _Traits>& operator<<(basic_ostream<_Elem, _Traits>& _Ostr, const path& _Path) {
     // current C++ standard supports only char and wchar_t streams
     if constexpr (_STD is_same_v<_Elem, char>) {
         _Ostr << _Path.generic_string();
@@ -45,7 +45,7 @@ _NODISCARD path operator+(const path& _Left, const path& _Right) {
 }
 
 template <class _CharTy>
-_NODISCARD path operator+(const path& _Left, const _CharTy* const _Right) {
+_NODISCARD constexpr path operator+(const path& _Left, const _CharTy* const _Right) {
     return path(_Left.generic_string() + _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Right));
 }
 
@@ -56,7 +56,7 @@ template _FILESYSTEM_API _NODISCARD path operator+(const path&, const char32_t* 
 template _FILESYSTEM_API _NODISCARD path operator+(const path&, const wchar_t* const);
 
 template <class _CharTy>
-_NODISCARD path operator+(const _CharTy* const _Left, const path& _Right) {
+_NODISCARD constexpr path operator+(const _CharTy* const _Left, const path& _Right) {
     return path(_Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Left) + _Right.generic_string());
 }
 
@@ -67,7 +67,7 @@ template _FILESYSTEM_API _NODISCARD path operator+(const char32_t* const, const 
 template _FILESYSTEM_API _NODISCARD path operator+(const wchar_t* const, const path&);
 
 template <class _Elem, class _Traits, class _Alloc>
-_NODISCARD path operator+(const path& _Left, const basic_string<_Elem, _Traits, _Alloc>& _Right) {
+_NODISCARD constexpr path operator+(const path& _Left, const basic_string<_Elem, _Traits, _Alloc>& _Right) {
     return path(_Left.generic_string() + _Convert_to_narrow<_Elem, _Traits>(_Right.data()));
 }
 
@@ -78,7 +78,7 @@ template _FILESYSTEM_API _NODISCARD path operator+(const path&, const u32string&
 template _FILESYSTEM_API _NODISCARD path operator+(const path&, const wstring&);
 
 template <class _Elem, class _Traits, class _Alloc>
-_NODISCARD path operator+(const basic_string<_Elem, _Traits, _Alloc>& _Left, const path& _Right) {
+_NODISCARD constexpr path operator+(const basic_string<_Elem, _Traits, _Alloc>& _Left, const path& _Right) {
     return path(_Convert_to_narrow<_Elem, _Traits>(_Left.data()) + _Right.generic_string());
 }
 
@@ -782,24 +782,31 @@ _NODISCARD path path::stem() const noexcept {
 // FUNCTION current_path
 _NODISCARD path current_path() noexcept {
     wchar_t _Buff[_Max_path];
-    _FILESYSTEM_VERIFY(GetModuleFileNameW(nullptr, _Buff, _Max_path),
-        "failed to get current path", error_type::runtime_error);
-    path _Path{static_cast<const wchar_t*>(_Buff)};
-    (void) _Path.remove_file(true);
-    return _Path;
+    _FILESYSTEM_VERIFY(GetCurrentDirectoryW(_Max_path, _Buff) > 0, "failed to get current path", error_type::runtime_error);
+    return path(static_cast<const wchar_t*>(_Buff));
 }
 
 _NODISCARD bool current_path(const path& _Path) { // sets new current path
+    _FILESYSTEM_VERIFY(exists(_Path) && _Is_directory(_Path), "invalid path", error_type::runtime_error);
     _FILESYSTEM_VERIFY(SetCurrentDirectoryW(_Path.generic_wstring().c_str()),
         "failed to set new path", error_type::runtime_error);
     return true;
 }
 
 // FUNCTION make_path
-_NODISCARD path make_path(const path& _Path) {
-    // build new path using current directory
-    return path(current_path() + (_Path.generic_string()[0] == '\\' ?
-        _Path : R"(\)" + _Path));
+_NODISCARD path make_path(const path& _Path, const bool _Module) {
+    if (_Module) { // build path with current executable directory
+        wchar_t _Buff[_Max_path];
+        _FILESYSTEM_VERIFY(GetModuleFileNameW(nullptr, _Buff, _Max_path) > 0,
+            "failed to get current executable path", error_type::runtime_error);
+        path _Result = static_cast<const wchar_t*>(_Buff);
+        (void) _Result.remove_file(); // leave only directories
+        _Result += _Path[0] == '\\' ? _Path : R"(\)" + _Path;
+        return _Result;
+    } else { // build path with current directory
+        return path(current_path() + (_Path[0] == '\\' ?
+            _Path : R"(\)" + _Path));
+    }
 }
 
 // FUNCTION temp_directory_path

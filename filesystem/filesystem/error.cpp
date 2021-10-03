@@ -35,16 +35,15 @@ __declspec(noreturn) void _Throw_system_error(const char* const _Src, const char
 
 // FUNCTION filesystem_error constructors/destructor
 filesystem_error::filesystem_error() noexcept
-    : _Mysrc(path{}), _Mycat(error_type{}), _Mywhat(nullptr) {}
+    : _Mysrc(path{}), _Mycat(error_type{}), _Mywhat(string()) {}
 
 template <class _CharTy>
 filesystem_error::filesystem_error(const _CharTy* const _Msg) noexcept(_Is_narrow_char_t<_CharTy>) {
-    // _CharTy must be an character (char/char8_t/char16_t/char32_t/wchar_t) type
+    // _CharTy must be an character type
     static_assert(_Is_char_t<_CharTy>, "invalid character type");
-    _Mysrc           = path();
-    _Mycat           = error_type();
-    const auto& _Tmp = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Msg);
-    _Mywhat          = _Tmp.c_str();
+    _Mysrc  = path();
+    _Mycat  = error_type();
+    _Mywhat = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Msg);
 }
 
 template _FILESYSTEM_API filesystem_error::filesystem_error(const char* const) noexcept;
@@ -55,12 +54,11 @@ template _FILESYSTEM_API filesystem_error::filesystem_error(const wchar_t* const
 
 template <class _CharTy>
 filesystem_error::filesystem_error(const _CharTy* const _Msg, const error_type _Code) noexcept(_Is_narrow_char_t<_CharTy>) {
-    // _CharTy must be an character (char/char8_t/char16_t/char32_t/wchar_t) type
+    // _CharTy must be an character type
     static_assert(_Is_char_t<_CharTy>, "invalid character type");
-    _Mysrc           = path();
-    _Mycat           = _Code;
-    const auto& _Tmp = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Msg);
-    _Mywhat          = _Tmp.c_str();
+    _Mysrc  = path();
+    _Mycat  = _Code;
+    _Mywhat = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Msg);
 }
 
 template _FILESYSTEM_API filesystem_error::filesystem_error(const char* const, const error_type) noexcept;
@@ -71,12 +69,11 @@ template _FILESYSTEM_API filesystem_error::filesystem_error(const wchar_t* const
 
 template <class _CharTy>
 filesystem_error::filesystem_error(const _CharTy* const _Msg, const error_type _Code, const path& _Src) noexcept(_Is_narrow_char_t<_CharTy>) {
-    // _CharTy must be an character (char/char8_t/char16_t/char32_t/wchar_t) type
+    // _CharTy must be an character type
     static_assert(_Is_char_t<_CharTy>, "invalid character type");
-    _Mysrc           = _Src;
-    _Mycat           = _Code;
-    const auto& _Tmp = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Msg);
-    _Mywhat          = _Tmp.c_str();
+    _Mysrc  = _Src;
+    _Mycat  = _Code;
+    _Mywhat = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Msg);
 }
 
 template _FILESYSTEM_API filesystem_error::filesystem_error(const char* const, const error_type, const path&) noexcept;
@@ -98,7 +95,7 @@ _NODISCARD const path& filesystem_error::source() const noexcept {
 }
 
 // FUNCTION filesystem_error::what
-_NODISCARD const char* filesystem_error::what() const noexcept {
+_NODISCARD const string& filesystem_error::what() const noexcept {
     return _Mywhat;
 }
 

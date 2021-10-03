@@ -73,7 +73,7 @@ _NODISCARD string _Convert_wide_to_narrow(const code_page _Cp, const wstring_vie
 
 // FUNCTION TEMPLATE _Convert_utf_to_wide
 template <class _Elem, class _Traits>
-_NODISCARD string _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input) noexcept(_Is_narrow_char_t<_Elem>) {
+_NODISCARD constexpr string _Convert_utf_to_narrow(const basic_string_view<_Elem, _Traits> _Input) noexcept(_Is_narrow_char_t<_Elem>) {
     if (!_Input.empty()) {
         if (_Input.size() > static_cast<size_t>(INT_MAX)) {
             _Throw_system_error("_Convert_utf_to_wide", "invalid length", error_type::length_error);
@@ -115,7 +115,8 @@ template _FILESYSTEM_API _NODISCARD string _Convert_utf_to_narrow(const wstring_
 
 // FUNCTION TEMPLATE _Convert_narrow_to_utf
 template <class _Elem, class _Traits, class _Alloc>
-_NODISCARD basic_string<_Elem, _Traits, _Alloc> _Convert_narrow_to_utf(const string_view _Input) noexcept(_Is_narrow_char_t<_Elem>) {
+_NODISCARD constexpr basic_string<_Elem, _Traits, _Alloc> _Convert_narrow_to_utf(
+    const string_view _Input) noexcept(_Is_narrow_char_t<_Elem>) {
     using _Str_t = basic_string<_Elem, _Traits, _Alloc>;
 
     if (!_Input.empty()) {
@@ -159,7 +160,7 @@ template _FILESYSTEM_API _NODISCARD wstring _Convert_narrow_to_utf(const string_
 
 // FUNCTION TEMPLATE _Convert_to_narrow
 template <class _Elem, class _Traits>
-_NODISCARD string _Convert_to_narrow(const basic_string_view<_Elem, _Traits> _Input) noexcept(_Is_narrow_char_t<_Elem>) {
+_NODISCARD constexpr string _Convert_to_narrow(const basic_string_view<_Elem, _Traits> _Input) noexcept(_Is_narrow_char_t<_Elem>) {
     if constexpr (_Is_narrow_char_t<_Elem>) {
         return string(_Input);
     } else if constexpr (_STD is_same_v<_Elem, wchar_t>) {
