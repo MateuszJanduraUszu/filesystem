@@ -208,7 +208,6 @@ _NODISCARD bool copy(const path& _From, const path& _To) {
 _NODISCARD bool copy_file(const path& _From, const path& _To, const bool _Replace) { // if _Replace is true, clears file
     _FILESYSTEM_VERIFY(exists(_From), "file not found", error_type::runtime_error);
     _FILESYSTEM_VERIFY(!_Is_directory(_From), "expected a file", error_type::runtime_error);
-
     if (is_empty(_From)) { // nothing to do
         return true;
     }
@@ -291,7 +290,6 @@ _NODISCARD bool create_junction(const path& _To, const path& _Junction) {
 
     // at the beginning _Junction must be created as default directory 
     (void) create_directory(_Junction);
-
     const HANDLE _Handle{CreateFileW(_Junction.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly | file_access::writeonly), 0, nullptr,
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
@@ -324,43 +322,44 @@ _NODISCARD bool create_junction(const path& _To, const path& _Junction) {
 }
 #pragma warning(pop)
 
-// FUNCTION TEMPLATE create_shortcut
+namespace experimental {
+    // FUNCTION TEMPLATE create_shortcut
 #ifdef _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
-_NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut) {
+    _NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut) {
 #else // ^^^ _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS ^^^ / vvv !_FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS vvv
-template <class _CharTy>
-_NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut, const _CharTy* const _Description) {
+    template <class _CharTy>
+    _NODISCARD bool create_shortcut(const path & _To, const path & _Shortcut, const _CharTy* const _Description) {
 #endif // _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
-    _FILESYSTEM_VERIFY(exists(_To), "file not found", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(!_Is_directory(_To), "expected a file", error_type::runtime_error);
-
-    IShellLinkW* _Link{};
-    _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
-        reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetPath(_To.generic_wstring().c_str()), _Link);
+        _FILESYSTEM_VERIFY(exists(_To), "file not found", error_type::runtime_error);
+        _FILESYSTEM_VERIFY(!_Is_directory(_To), "expected a file", error_type::runtime_error);
+        IShellLinkW* _Link{};
+        _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
+        _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
+            reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetPath(_To.generic_wstring().c_str()), _Link);
 #ifndef _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
-    // Current version don't offerts conversion between char[16/32]_t and wchar_t.
-    // First convert to narrow, and then from narrow to wide.
-    const auto& _Narrow = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Description);
-    const auto& _Wide   = _Convert_narrow_to_wide(code_page::utf8, _Narrow.c_str());
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetDescription(_Wide.c_str()), _Link);
+        // Current version don't offerts conversion between char[16/32]_t and wchar_t.
+        // First convert to narrow, and then from narrow to wide.
+        const auto& _Narrow = _Convert_to_narrow<_CharTy, char_traits<_CharTy>>(_Description);
+        const auto& _Wide = _Convert_narrow_to_wide(code_page::utf8, _Narrow.c_str());
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetDescription(_Wide.c_str()), _Link);
 #endif // _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
-    IPersistFile* _File = {};
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_File->Save(_Shortcut.generic_wstring().c_str(), true), _Link);
-    _File->Release();
-    _Link->Release();
-    return true;
-}
+        IPersistFile* _File = {};
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_File->Save(_Shortcut.generic_wstring().c_str(), true), _Link);
+        _File->Release();
+        _Link->Release();
+        return true;
+    }
 
 #ifndef _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
-template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char* const);
-template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char8_t* const);
-template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char16_t* const);
-template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char32_t* const);
-template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const wchar_t* const);
+    template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char* const);
+    template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char8_t* const);
+    template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char16_t* const);
+    template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const char32_t* const);
+    template _FILESYSTEM_API _NODISCARD bool create_shortcut(const path&, const path&, const wchar_t* const);
 #endif // _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
+} // experimental
 
 // FUNCTION create_symlink
 _NODISCARD bool create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags) {
@@ -384,7 +383,6 @@ _NODISCARD bool remove(const path& _Path) { // removes files and directories
 // FUNCTION remove_all
 _NODISCARD bool remove_all(const path& _Path) { // removes directory with all content
     _FILESYSTEM_VERIFY(_Is_directory(_Path), "expected a directory", error_type::runtime_error);
-
     if (is_empty(_Path)) { // if empty, remove _Path and don't do anything else
         return remove(_Path);
     }
@@ -418,7 +416,6 @@ _NODISCARD bool remove_all(const path& _Path) { // removes directory with all co
 // FUNCTION remove_junction
 _NODISCARD bool remove_junction(const path& _Target) {
     _FILESYSTEM_VERIFY(is_junction(_Target), "expected a junction", error_type::runtime_error);
-
     const HANDLE _Handle{CreateFileW(_Target.generic_wstring().c_str(),
         static_cast<unsigned long>(file_access::readonly | file_access::writeonly), 0, nullptr,
         static_cast<unsigned long>(file_disposition::only_if_exists), static_cast<unsigned long>(
@@ -446,7 +443,6 @@ _NODISCARD bool remove_junction(const path& _Target) {
 _NODISCARD bool remove_line(const path& _Target, const uintmax_t _Line) { // removes _Line line from _Target
     _FILESYSTEM_VERIFY(exists(_Target), "file not found", error_type::runtime_error);
     _FILESYSTEM_VERIFY(!_Is_directory(_Target), "expected a file", error_type::runtime_error);
-
     const auto& _All       = read_all(_Target);
     const size_t _Count    = _All.size();
     const size_t _Expected = _Count - 1; // count of lines after removed
@@ -454,7 +450,6 @@ _NODISCARD bool remove_line(const path& _Target, const uintmax_t _Line) { // rem
     // Clear _Target and write to him the newest content.
     // Use resize_file() instead of clear(), because we know that _Target is a file.
     (void) resize_file(_Target, 0);
-
     for (size_t _Idx = 0; _Idx < _Count; ++_Idx) {
         if (_Idx + 1 != _Line) { // skip removed line
             (void) write_back(_Target, _All[_Idx].c_str());
@@ -462,6 +457,20 @@ _NODISCARD bool remove_line(const path& _Target, const uintmax_t _Line) { // rem
     }
 
     _FILESYSTEM_VERIFY(lines_count(_Target) == _Expected, "failed to remove the line", error_type::runtime_error);
+    return true;
+}
+
+// FUNCTION remove_lines
+_NODISCARD bool remove_lines(const path& _Target, const uintmax_t _First, uintmax_t _Count) {
+    _FILESYSTEM_VERIFY(exists(_Target), "file not found", error_type::runtime_error);
+    _FILESYSTEM_VERIFY(!_Is_directory(_Target), "expected a file", error_type::runtime_error);
+    const uintmax_t _Old_count = lines_count(_Target);
+    const uintmax_t _New_count = _Old_count - _Count;
+    for (; _Count > 0; --_Count) { // use the same line
+        (void) remove_line(_Target, _First);
+    }
+
+    _FILESYSTEM_VERIFY(lines_count(_Target) == _New_count, "failed to removed lines", error_type::runtime_error);
     return true;
 }
 

@@ -65,21 +65,9 @@
 #define _FILESYSTEM_END }
 #endif // _FILESYSTEM_END
 
-#ifndef _EXPERIMENTAL_BEGIN
-#define _EXPERIMENTAL_BEGIN namespace experimental {
-#endif // _EXPERIMENTAL_BEGIN
-
-#ifndef _EXPERIMENTAL_END
-#define _EXPERIMENTAL_END }
-#endif // _EXPERIMENTAL_END
-
 #ifndef _FILESYSTEM
 #define _FILESYSTEM ::filesystem::
 #endif // _FILESYSTEM
-
-#ifndef _FILESYSTEM_EXPERIMENTAL
-#define _FILESYSTEM_EXPERIMENTAL ::filesystem::experimental::
-#endif // _FILESYSTEM_EXPERIMENTAL
 
 // Deprecated Messages
 #ifndef _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
@@ -931,13 +919,15 @@ _FILESYSTEM_API _NODISCARD bool create_hard_link(const path& _To, const path& _H
 // FUNCTION create_junction
 _FILESYSTEM_API _NODISCARD bool create_junction(const path& _To, const path& _Junction);
 
-// FUNCTION TEMPLATE create_shortcut
+namespace experimental {
+    // FUNCTION TEMPLATE create_shortcut
 #ifdef _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
-_FILESYSTEM_API _NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut);
+    _FILESYSTEM_API _NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut);
 #else // ^^^ _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS ^^^ / vvv !_FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS vvv
-template <class _CharTy>
-_FILESYSTEM_API _NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut, const _CharTy* const _Description = nullptr);
+    template <class _CharTy>
+    _FILESYSTEM_API _NODISCARD bool create_shortcut(const path& _To, const path& _Shortcut, const _CharTy* const _Description = nullptr);
 #endif // _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS
+} // experimental
 
 // FUNCTION create_symlink
 _FILESYSTEM_API _NODISCARD bool create_symlink(const path& _To, const path& _Symlink, const symlink_flags _Flags);
@@ -1040,6 +1030,9 @@ _FILESYSTEM_API _NODISCARD bool remove_junction(const path& _Target);
 // FUNCTION remove_line
 _FILESYSTEM_API _NODISCARD bool remove_line(const path& _Target, const uintmax_t _Line);
 
+// FUNCTION remove_lines
+_FILESYSTEM_API _NODISCARD bool remove_lines(const path& _Target, const uintmax_t _First, uintmax_t _Count);
+
 // FUNCTION rename
 _FILESYSTEM_API _NODISCARD bool rename(const path& _Old, const path& _New, const rename_options _Flags);
 _FILESYSTEM_API _NODISCARD bool rename(const path& _Old, const path& _New);
@@ -1047,23 +1040,25 @@ _FILESYSTEM_API _NODISCARD bool rename(const path& _Old, const path& _New);
 // FUNCTION resize_file
 _FILESYSTEM_API _NODISCARD bool resize_file(const path& _Target, const size_t _Newsize);
 
-// STRUCT shortcut_data
-struct _FILESYSTEM_API _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS shortcut_data final { // warinig C6001 if not defined
-    wstring arguments{};
-    wstring description{};
-    uint16_t hotkey{};
-    path icon_path{};
-    int icon{};
-    ITEMIDLIST* id_list{};
-    path target_path{};
-    int show_cmd{};
-    path directory{};
-};
+namespace experimental {
+    // STRUCT shortcut_data
+    struct _FILESYSTEM_API _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS shortcut_data final { // warinig C6001 if not defined
+        wstring arguments{};
+        wstring description{};
+        uint16_t hotkey{};
+        path icon_path{};
+        int icon{};
+        ITEMIDLIST* id_list{};
+        path target_path{};
+        int show_cmd{};
+        path directory{};
+    };
 
-// FUNCTION shortcut_parameters
-_FILESYSTEM_API _NODISCARD _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS shortcut_data shortcut_parameters(const path& _Target);
-_FILESYSTEM_API _NODISCARD _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS bool shortcut_parameters(
-    const path& _Target, shortcut_data* const _Params);
+    // FUNCTION shortcut_parameters
+    _FILESYSTEM_API _NODISCARD _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS shortcut_data shortcut_parameters(const path& _Target);
+    _FILESYSTEM_API _NODISCARD _FILESYSTEM_DEPRECATED_SHORTCUT_PARAMETERS bool shortcut_parameters(
+        const path& _Target, shortcut_data* const _Params);
+} // experimental
 
 // STRUCT disk_space
 struct _FILESYSTEM_API disk_space final {

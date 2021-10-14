@@ -574,72 +574,74 @@ _NODISCARD file_time last_write_time(const path& _Target) {
         _Sys_exact_time.wHour, _Sys_exact_time.wMinute, _Sys_exact_time.wSecond};
 }
 
-// FUNCTION shortcut_parameters
-_NODISCARD shortcut_data shortcut_parameters(const path& _Target) {
-    _FILESYSTEM_VERIFY(exists(_Target), "shortcut not found", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Target.extension() == "lnk", "expected a shortcut", error_type::runtime_error);
+namespace experimental {
+    // FUNCTION shortcut_parameters
+    _NODISCARD shortcut_data shortcut_parameters(const path& _Target) {
+        _FILESYSTEM_VERIFY(exists(_Target), "shortcut not found", error_type::runtime_error);
+        _FILESYSTEM_VERIFY(_Target.extension() == "lnk", "expected a shortcut", error_type::runtime_error);
 
-    IShellLinkW* _Link     = {};
-    WIN32_FIND_DATAW _Data = {}; // warning 6001 if not defined
-    shortcut_data _Result  = {};
-    // this functions will replace characters; size must be defined before calling them
-    _Result.arguments.resize(INFOTIPSIZE);
-    _Result.description.resize(INFOTIPSIZE);
-    _Result.directory.resize(_Max_path);
-    _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
-        reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
-    
-    IPersistFile* _File = {};
-    wstring _Buff       = wstring(); // buffer for shortcut icon/target path
-    _Buff.resize(_Max_path); // resize before calling GetIconLocation()
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_File->Load(_Target.generic_wstring().c_str(), STGM_READ), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->Resolve(nullptr, 0), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetArguments(_Result.arguments.data(), INFOTIPSIZE), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetDescription(_Result.description.data(), INFOTIPSIZE), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetHotkey(&_Result.hotkey), _Link);
-    _Buff.resize(_Max_path); // set default buffer size
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetIconLocation(_Buff.data(), _Max_path, &_Result.icon), _Link);
-    _Result.icon_path = _Buff;
-    _Buff.resize(_Max_path); // restore buffer size
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetIDList(&_Result.id_list), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetPath(_Buff.data(), _Max_path, &_Data, STGM_READ), _Link);
-    _Result.target_path = _Buff;
-    _Buff.resize(_Max_path); // restore buffer size
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetShowCmd(&_Result.show_cmd), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetWorkingDirectory(_Buff.data(), _Max_path), _Link);
-    _Result.directory = _Buff;
-    _File->Release();
-    _Link->Release();
-    return _Result;
-}
+        IShellLinkW* _Link = {};
+        WIN32_FIND_DATAW _Data = {}; // warning 6001 if not defined
+        shortcut_data _Result = {};
+        // this functions will replace characters; size must be defined before calling them
+        _Result.arguments.resize(INFOTIPSIZE);
+        _Result.description.resize(INFOTIPSIZE);
+        _Result.directory.resize(_Max_path);
+        _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
+        _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
+            reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
 
-_NODISCARD bool shortcut_parameters(const path& _Target, shortcut_data* const _Params) {
-    _FILESYSTEM_VERIFY(exists(_Target), "shortcut not found", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(_Target.extension() == "lnk", "expected a shortcut", error_type::runtime_error);
+        IPersistFile* _File = {};
+        wstring _Buff = wstring(); // buffer for shortcut icon/target path
+        _Buff.resize(_Max_path); // resize before calling GetIconLocation()
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_File->Load(_Target.generic_wstring().c_str(), STGM_READ), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->Resolve(nullptr, 0), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetArguments(_Result.arguments.data(), INFOTIPSIZE), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetDescription(_Result.description.data(), INFOTIPSIZE), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetHotkey(&_Result.hotkey), _Link);
+        _Buff.resize(_Max_path); // set default buffer size
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetIconLocation(_Buff.data(), _Max_path, &_Result.icon), _Link);
+        _Result.icon_path = _Buff;
+        _Buff.resize(_Max_path); // restore buffer size
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetIDList(&_Result.id_list), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetPath(_Buff.data(), _Max_path, &_Data, STGM_READ), _Link);
+        _Result.target_path = _Buff;
+        _Buff.resize(_Max_path); // restore buffer size
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetShowCmd(&_Result.show_cmd), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->GetWorkingDirectory(_Buff.data(), _Max_path), _Link);
+        _Result.directory = _Buff;
+        _File->Release();
+        _Link->Release();
+        return _Result;
+    }
 
-    IShellLinkW* _Link{};
-    _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
-    _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
-        reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
-    
-    IPersistFile* _File{};
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_File->Load(_Target.generic_wstring().c_str(), STGM_READ), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->Resolve(nullptr, 0), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetArguments(_Params->arguments.c_str()), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetDescription(_Params->description.c_str()), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetHotkey(_Params->hotkey), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetIconLocation(_Params->icon_path.generic_wstring().c_str(), _Params->icon), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetIDList(_Params->id_list), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetPath(_Params->target_path.generic_wstring().c_str()), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetShowCmd(_Params->show_cmd), _Link);
-    _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetWorkingDirectory(_Params->directory.generic_wstring().c_str()), _Link);
-    _File->Release();
-    _Link->Release();
-    return true;
-}
+    _NODISCARD bool shortcut_parameters(const path& _Target, shortcut_data* const _Params) {
+        _FILESYSTEM_VERIFY(exists(_Target), "shortcut not found", error_type::runtime_error);
+        _FILESYSTEM_VERIFY(_Target.extension() == "lnk", "expected a shortcut", error_type::runtime_error);
+
+        IShellLinkW* _Link{};
+        _FILESYSTEM_VERIFY(CoInitialize(nullptr) == S_OK, "failed to initialize COM library", error_type::runtime_error);
+        _FILESYSTEM_VERIFY(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLinkW,
+            reinterpret_cast<void**>(&_Link)) == S_OK, "failed to create COM object instance", error_type::runtime_error);
+
+        IPersistFile* _File{};
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&_File)), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_File->Load(_Target.generic_wstring().c_str(), STGM_READ), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->Resolve(nullptr, 0), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetArguments(_Params->arguments.c_str()), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetDescription(_Params->description.c_str()), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetHotkey(_Params->hotkey), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetIconLocation(_Params->icon_path.generic_wstring().c_str(), _Params->icon), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetIDList(_Params->id_list), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetPath(_Params->target_path.generic_wstring().c_str()), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetShowCmd(_Params->show_cmd), _Link);
+        _FILESYSTEM_VERIFY_COM_RESULT(_Link->SetWorkingDirectory(_Params->directory.generic_wstring().c_str()), _Link);
+        _File->Release();
+        _Link->Release();
+        return true;
+    }
+} // experimental
 
 // FUNCTION space
 _NODISCARD disk_space space(const path& _Target) {
